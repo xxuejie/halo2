@@ -1,5 +1,10 @@
-use std::collections::{BTreeMap, HashSet};
-use std::fmt;
+use crate::collections::HashSet;
+use alloc::collections::BTreeMap;
+use alloc::{
+    string::{String, ToString},
+    vec::Vec,
+};
+use core::fmt;
 
 use group::ff::Field;
 

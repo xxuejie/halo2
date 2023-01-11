@@ -1,5 +1,6 @@
 //! Implementation of Sinsemilla outside the circuit.
 
+use alloc::{format, vec::Vec};
 use group::{Curve, Wnaf};
 use halo2_proofs::arithmetic::{CurveAffine, CurveExt};
 use pasta_curves::pallas;
@@ -245,6 +246,7 @@ impl CommitDomain {
 #[cfg(test)]
 mod tests {
     use super::{Pad, K};
+    use alloc::vec::Vec;
     use pasta_curves::{arithmetic::CurveExt, pallas};
 
     #[test]

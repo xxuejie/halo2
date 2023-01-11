@@ -2,6 +2,7 @@
 //! field and polynomial arithmetic.
 
 use super::multicore;
+use alloc::vec::Vec;
 pub use ff::Field;
 use group::{
     ff::{BatchInvert, PrimeField},
@@ -407,13 +408,13 @@ pub fn lagrange_interpolate<F: Field>(points: &[F], evals: &[F]) -> Vec<F> {
                 product.resize(tmp.len() + 1, F::ZERO);
                 for ((a, b), product) in tmp
                     .iter()
-                    .chain(std::iter::once(&F::ZERO))
-                    .zip(std::iter::once(&F::ZERO).chain(tmp.iter()))
+                    .chain(core::iter::once(&F::ZERO))
+                    .zip(core::iter::once(&F::ZERO).chain(tmp.iter()))
                     .zip(product.iter_mut())
                 {
                     *product = *a * (-denom * x_k) + *b * denom;
                 }
-                std::mem::swap(&mut tmp, &mut product);
+                core::mem::swap(&mut tmp, &mut product);
             }
             assert_eq!(tmp.len(), points.len());
             assert_eq!(product.len(), points.len() - 1);

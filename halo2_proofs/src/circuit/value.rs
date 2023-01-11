@@ -1,5 +1,6 @@
-use std::borrow::Borrow;
-use std::ops::{Add, Mul, Neg, Sub};
+use alloc::vec::Vec;
+use core::borrow::Borrow;
+use core::ops::{Add, Mul, Neg, Sub};
 
 use group::ff::Field;
 

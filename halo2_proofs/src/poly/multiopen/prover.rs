@@ -10,11 +10,12 @@ use super::{
 use crate::arithmetic::{eval_polynomial, kate_division, CurveAffine};
 use crate::transcript::{EncodedChallenge, TranscriptWrite};
 
+use alloc::vec::Vec;
+use core::marker::PhantomData;
 use ff::Field;
 use group::Curve;
 use rand_core::RngCore;
 use std::io;
-use std::marker::PhantomData;
 
 /// Create a multi-opening proof
 pub fn create_proof<
@@ -124,7 +125,7 @@ pub struct PolynomialPointer<'a, C: CurveAffine> {
 
 impl<'a, C: CurveAffine> PartialEq for PolynomialPointer<'a, C> {
     fn eq(&self, other: &Self) -> bool {
-        std::ptr::eq(self.poly, other.poly)
+        core::ptr::eq(self.poly, other.poly)
     }
 }
 

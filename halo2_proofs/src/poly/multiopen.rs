@@ -3,7 +3,7 @@
 //!
 //! [halo]: https://eprint.iacr.org/2019/1021
 
-use std::collections::{BTreeMap, BTreeSet};
+use alloc::collections::{BTreeMap, BTreeSet};
 
 use super::*;
 use crate::{arithmetic::CurveAffine, transcript::ChallengeScalar};
@@ -92,9 +92,9 @@ impl<'r, 'params: 'r, C: CurveAffine> PartialEq for CommitmentReference<'r, 'par
     fn eq(&self, other: &Self) -> bool {
         match (self, other) {
             (&CommitmentReference::Commitment(a), &CommitmentReference::Commitment(b)) => {
-                std::ptr::eq(a, b)
+                core::ptr::eq(a, b)
             }
-            (&CommitmentReference::MSM(a), &CommitmentReference::MSM(b)) => std::ptr::eq(a, b),
+            (&CommitmentReference::MSM(a), &CommitmentReference::MSM(b)) => core::ptr::eq(a, b),
             _ => false,
         }
     }
@@ -293,7 +293,7 @@ fn test_roundtrip() {
         &params,
         rng,
         &mut transcript,
-        std::iter::empty()
+        core::iter::empty()
             .chain(Some(ProverQuery {
                 point: x,
                 poly: &ax,
@@ -322,7 +322,7 @@ fn test_roundtrip() {
         let guard = verify_proof(
             &params,
             &mut transcript,
-            std::iter::empty()
+            core::iter::empty()
                 .chain(Some(VerifierQuery::new_commitment(&a, x, avx)))
                 .chain(Some(VerifierQuery::new_commitment(&b, x, avx))) // NB: wrong!
                 .chain(Some(VerifierQuery::new_commitment(&c, y, cvy))),
@@ -344,7 +344,7 @@ fn test_roundtrip() {
         let guard = verify_proof(
             &params,
             &mut transcript,
-            std::iter::empty()
+            core::iter::empty()
                 .chain(Some(VerifierQuery::new_commitment(&a, x, avx)))
                 .chain(Some(VerifierQuery::new_commitment(&b, x, bvx)))
                 .chain(Some(VerifierQuery::new_commitment(&c, y, cvy))),
@@ -386,13 +386,14 @@ mod tests {
 
 #[cfg(test)]
 mod proptests {
+    use alloc::vec::Vec;
     use group::ff::FromUniformBytes;
     use proptest::{collection::vec, prelude::*, sample::select};
 
     use super::construct_intermediate_sets;
     use pasta_curves::Fp;
 
-    use std::convert::TryFrom;
+    use core::convert::TryFrom;
 
     #[derive(Debug, Clone)]
     struct MyQuery<F> {

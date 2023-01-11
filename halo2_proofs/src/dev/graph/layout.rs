@@ -1,10 +1,10 @@
+use crate::collections::HashSet;
+use core::ops::Range;
 use ff::Field;
 use plotters::{
     coord::Shift,
     prelude::{DrawingArea, DrawingAreaErrorKind, DrawingBackend},
 };
-use std::collections::HashSet;
-use std::ops::Range;
 
 use crate::{
     circuit::layouter::RegionColumn,

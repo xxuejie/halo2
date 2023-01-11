@@ -2,6 +2,7 @@
 #![allow(clippy::op_ref)]
 
 use assert_matches::assert_matches;
+use core::marker::PhantomData;
 use group::ff::{Field, WithSmallOrderMulGroup};
 use halo2_proofs::arithmetic::CurveAffine;
 use halo2_proofs::circuit::{Cell, Layouter, SimpleFloorPlanner, Value};
@@ -15,7 +16,6 @@ use halo2_proofs::poly::commitment::{Guard, MSM};
 use halo2_proofs::poly::{commitment::Params, Rotation};
 use halo2_proofs::transcript::{Blake2bRead, Blake2bWrite, Challenge255, EncodedChallenge};
 use rand_core::OsRng;
-use std::marker::PhantomData;
 
 #[test]
 fn plonk_api() {

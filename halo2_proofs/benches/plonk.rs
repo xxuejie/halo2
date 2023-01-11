@@ -9,7 +9,7 @@ use halo2_proofs::poly::{commitment::Params, Rotation};
 use halo2_proofs::transcript::{Blake2bRead, Blake2bWrite, Challenge255};
 use rand_core::OsRng;
 
-use std::marker::PhantomData;
+use core::marker::PhantomData;
 
 use criterion::{BenchmarkId, Criterion};
 

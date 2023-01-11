@@ -8,6 +8,7 @@ use crate::arithmetic::{
 };
 use crate::transcript::{EncodedChallenge, TranscriptWrite};
 
+use alloc::vec::Vec;
 use group::Curve;
 use std::io;
 

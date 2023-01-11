@@ -10,6 +10,8 @@ use super::{HashDomains, SinsemillaInstructions};
 
 use crate::utilities::{cond_swap::CondSwapInstructions, i2lebsp, UtilitiesInstructions};
 
+use alloc::format;
+
 pub mod chip;
 
 /// SWU hash-to-curve personalization for the Merkle CRH generator
@@ -195,8 +197,9 @@ pub mod tests {
         plonk::{Circuit, ConstraintSystem, Error},
     };
 
+    use alloc::vec::Vec;
+    use core::{convert::TryInto, iter};
     use rand::{rngs::OsRng, RngCore};
-    use std::{convert::TryInto, iter};
 
     const MERKLE_DEPTH: usize = 32;
 

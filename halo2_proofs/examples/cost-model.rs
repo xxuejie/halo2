@@ -1,9 +1,5 @@
-use std::{
-    cmp, fmt, iter,
-    num::ParseIntError,
-    str::FromStr,
-    time::{Duration, Instant},
-};
+use core::{cmp, fmt, iter, num::ParseIntError, str::FromStr, time::Duration};
+use std::time::Instant;
 
 use ff::Field;
 use group::{Curve, Group};

@@ -1,6 +1,7 @@
 #![allow(clippy::int_plus_one)]
 
-use std::ops::Range;
+use alloc::{string::String, vec::Vec};
+use core::ops::Range;
 
 use ff::{Field, FromUniformBytes};
 use group::Curve;
@@ -52,7 +53,7 @@ struct Assembly<F: Field> {
     selectors: Vec<Vec<bool>>,
     // A range of available rows for assignment and copies.
     usable_rows: Range<usize>,
-    _marker: std::marker::PhantomData<F>,
+    _marker: core::marker::PhantomData<F>,
 }
 
 impl<F: Field> Assignment<F> for Assembly<F> {
@@ -207,7 +208,7 @@ where
         permutation: permutation::keygen::Assembly::new(params.n as usize, &cs.permutation),
         selectors: vec![vec![false; params.n as usize]; cs.num_selectors],
         usable_rows: 0..params.n as usize - (cs.blinding_factors() + 1),
-        _marker: std::marker::PhantomData,
+        _marker: core::marker::PhantomData,
     };
 
     // Synthesize the circuit to obtain URS
@@ -268,7 +269,7 @@ where
         permutation: permutation::keygen::Assembly::new(params.n as usize, &cs.permutation),
         selectors: vec![vec![false; params.n as usize]; cs.num_selectors],
         usable_rows: 0..params.n as usize - (cs.blinding_factors() + 1),
-        _marker: std::marker::PhantomData,
+        _marker: core::marker::PhantomData,
     };
 
     // Synthesize the circuit to obtain URS

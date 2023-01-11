@@ -1,7 +1,6 @@
-use std::{
-    collections::BTreeSet,
-    fmt::{self, Write},
-};
+use alloc::collections::BTreeSet;
+use alloc::{string::String, vec::Vec};
+use core::fmt::{self, Write};
 
 use ff::PrimeField;
 

@@ -1,4 +1,4 @@
-use std::convert::TryInto;
+use core::convert::TryInto;
 
 use super::super::{EccPoint, EccScalarFixedShort, FixedPoints, L_SCALAR_SHORT, NUM_WINDOWS_SHORT};
 use crate::{ecc::chip::MagnitudeSign, utilities::bool_check};
@@ -245,6 +245,7 @@ impl<Fixed: FixedPoints<pallas::Affine>> Config<Fixed> {
 
 #[cfg(test)]
 pub mod tests {
+    use alloc::string::{String, ToString};
     use group::{ff::PrimeField, Curve};
     use halo2_proofs::{
         arithmetic::CurveAffine,

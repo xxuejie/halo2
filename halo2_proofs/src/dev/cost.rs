@@ -1,9 +1,9 @@
 //! Developer tools for investigating the cost of a circuit.
 
-use std::{
-    cmp,
-    collections::{HashMap, HashSet},
-    iter,
+use crate::collections::{HashMap, HashSet};
+use alloc::{string::String, vec::Vec};
+use core::{
+    cmp, iter,
     marker::PhantomData,
     ops::{Add, Mul},
 };

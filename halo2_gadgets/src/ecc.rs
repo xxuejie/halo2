@@ -1,6 +1,6 @@
 //! Elliptic curve operations.
 
-use std::fmt::Debug;
+use core::fmt::Debug;
 
 use halo2_proofs::{
     arithmetic::CurveAffine,
@@ -596,6 +596,8 @@ pub(crate) mod tests {
         FixedPoints,
     };
     use crate::utilities::lookup_range_check::LookupRangeCheckConfig;
+
+    use alloc::vec::Vec;
 
     #[derive(Debug, Eq, PartialEq, Clone)]
     pub(crate) struct TestFixedBases;

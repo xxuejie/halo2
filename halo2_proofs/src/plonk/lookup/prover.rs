@@ -13,17 +13,18 @@ use crate::{
     },
     transcript::{EncodedChallenge, TranscriptWrite},
 };
+use alloc::collections::BTreeMap;
+use alloc::vec::Vec;
+use core::{
+    iter,
+    ops::{Mul, MulAssign},
+};
 use ff::WithSmallOrderMulGroup;
 use group::{
     ff::{BatchInvert, Field},
     Curve,
 };
 use rand_core::RngCore;
-use std::{
-    collections::BTreeMap,
-    iter,
-    ops::{Mul, MulAssign},
-};
 
 #[derive(Debug)]
 pub(in crate::plonk) struct Permuted<C: CurveAffine, Ev> {

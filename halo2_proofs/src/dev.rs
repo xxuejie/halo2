@@ -1,9 +1,10 @@
 //! Tools for developing circuits.
 
-use std::collections::HashMap;
-use std::collections::HashSet;
-use std::iter;
-use std::ops::{Add, Mul, Neg, Range};
+use crate::collections::HashMap;
+use crate::collections::HashSet;
+use alloc::{string::String, vec::Vec};
+use core::iter;
+use core::ops::{Add, Mul, Neg, Range};
 
 use ff::Field;
 
@@ -917,6 +918,7 @@ impl<F: Field + Ord> MockProver<F> {
 
 #[cfg(test)]
 mod tests {
+    use alloc::borrow::ToOwned;
     use group::ff::Field;
     use pasta_curves::Fp;
 

@@ -1,4 +1,5 @@
-use std::collections::BTreeMap;
+use alloc::collections::BTreeMap;
+use alloc::{string::String, vec::Vec};
 
 use group::ff::Field;
 

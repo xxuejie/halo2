@@ -1,8 +1,6 @@
-use std::{
-    cmp,
-    collections::{BTreeSet, HashMap},
-    ops::Range,
-};
+use crate::collections::HashMap;
+use alloc::{collections::BTreeSet, vec::Vec};
+use core::{cmp, ops::Range};
 
 use super::{RegionColumn, RegionShape};
 use crate::{circuit::RegionStart, plonk::Any};

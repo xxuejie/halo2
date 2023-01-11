@@ -1,5 +1,5 @@
+use core::fmt;
 use std::error;
-use std::fmt;
 use std::io;
 
 use super::{Any, Column};

@@ -1,8 +1,8 @@
 use super::super::Gate;
 
+use core::marker::PhantomData;
 use group::ff::{Field, PrimeField};
 use halo2_proofs::plonk::Expression;
-use std::marker::PhantomData;
 
 pub struct ScheduleGate<F: Field>(PhantomData<F>);
 

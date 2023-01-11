@@ -10,6 +10,8 @@ use halo2_proofs::{
 
 use pasta_curves::pallas;
 
+use alloc::vec::Vec;
+
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub struct Config {
     // Selector used to constrain the cells used in complete addition.

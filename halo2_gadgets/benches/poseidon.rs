@@ -11,12 +11,12 @@ use halo2_proofs::{
 };
 use pasta_curves::{pallas, vesta};
 
+use core::convert::TryInto;
+use core::marker::PhantomData;
 use halo2_gadgets::poseidon::{
     primitives::{self as poseidon, generate_constants, ConstantLength, Mds, Spec},
     Hash, Pow5Chip, Pow5Config,
 };
-use std::convert::TryInto;
-use std::marker::PhantomData;
 
 use criterion::{criterion_group, criterion_main, Criterion};
 use rand::rngs::OsRng;

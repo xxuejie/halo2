@@ -1,4 +1,5 @@
 //! Test vectors for [`OrchardNullifier`].
+use alloc::{vec, vec::Vec};
 
 pub(crate) struct PermuteTestVector {
     pub(crate) initial_state: [[u8; 32]; 3],

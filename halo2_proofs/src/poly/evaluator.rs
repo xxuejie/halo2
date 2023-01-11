@@ -1,9 +1,10 @@
-use std::{
+use alloc::sync::Arc;
+use alloc::vec::Vec;
+use core::{
     cmp, fmt,
     hash::{Hash, Hasher},
     marker::PhantomData,
     ops::{Add, Mul, MulAssign, Neg, Sub},
-    sync::Arc,
 };
 
 use ff::WithSmallOrderMulGroup;

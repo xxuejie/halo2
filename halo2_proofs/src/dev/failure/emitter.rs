@@ -1,5 +1,6 @@
-use std::collections::BTreeMap;
-use std::iter;
+use alloc::collections::BTreeMap;
+use alloc::string::{String, ToString};
+use core::iter;
 
 use group::ff::Field;
 

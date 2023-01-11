@@ -1,3 +1,4 @@
+use core::marker::PhantomData;
 use ff::Field;
 use halo2_proofs::{
     circuit::{Cell, Layouter, Region, SimpleFloorPlanner, Value},
@@ -6,7 +7,6 @@ use halo2_proofs::{
     poly::Rotation,
 };
 use rand_core::OsRng;
-use std::marker::PhantomData;
 
 /// This represents an advice column at a certain row in the ConstraintSystem
 #[derive(Copy, Clone, Debug)]

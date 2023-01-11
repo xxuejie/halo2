@@ -5,6 +5,7 @@
 //! [halo]: https://eprint.iacr.org/2019/1021
 //! [plonk]: https://eprint.iacr.org/2019/953
 
+use alloc::vec::Vec;
 use blake2b_simd::Params as Blake2bParams;
 use group::ff::{Field, FromUniformBytes, PrimeField};
 

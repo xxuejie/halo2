@@ -3,6 +3,7 @@ use crate::{
     arithmetic::CurveAffine,
     poly::{Coeff, ExtendedLagrangeCoeff, LagrangeCoeff, Polynomial},
 };
+use alloc::vec::Vec;
 
 pub(crate) mod keygen;
 pub(crate) mod prover;

@@ -7,9 +7,10 @@ use super::{Coeff, LagrangeCoeff, Polynomial};
 use crate::arithmetic::{best_fft, best_multiexp, parallelize, CurveAffine, CurveExt};
 use crate::helpers::CurveRead;
 
+use alloc::vec::Vec;
+use core::ops::{Add, AddAssign, Mul, MulAssign};
 use ff::{Field, PrimeField};
 use group::{prime::PrimeCurveAffine, Curve, Group};
-use std::ops::{Add, AddAssign, Mul, MulAssign};
 
 mod msm;
 mod prover;

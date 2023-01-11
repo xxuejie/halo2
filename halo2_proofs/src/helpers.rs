@@ -1,3 +1,5 @@
+#![cfg(feature = "std")]
+
 use std::io;
 
 use pasta_curves::arithmetic::CurveAffine;

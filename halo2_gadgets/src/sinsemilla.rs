@@ -5,13 +5,14 @@ use crate::{
     ecc::{self, EccInstructions, FixedPoints},
     utilities::{FieldValue, RangeConstrained, Var},
 };
+use alloc::{format, vec::Vec};
+use core::fmt::Debug;
 use group::ff::{Field, PrimeField};
 use halo2_proofs::{
     circuit::{Layouter, Value},
     plonk::Error,
 };
 use pasta_curves::arithmetic::CurveAffine;
-use std::fmt::Debug;
 
 pub mod chip;
 pub mod merkle;
@@ -482,7 +483,8 @@ pub(crate) mod tests {
     use lazy_static::lazy_static;
     use pasta_curves::pallas;
 
-    use std::convert::TryInto;
+    use alloc::vec::Vec;
+    use core::convert::TryInto;
 
     pub(crate) const PERSONALIZATION: &str = "MerkleCRH";
 

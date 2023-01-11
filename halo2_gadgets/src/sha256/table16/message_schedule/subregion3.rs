@@ -1,11 +1,11 @@
 use super::super::{util::*, AssignedBits, Bits, SpreadVar, SpreadWord, Table16Assignment};
 use super::{schedule_util::*, MessageScheduleConfig, MessageWord};
+use core::convert::TryInto;
 use halo2_proofs::{
     circuit::{Region, Value},
     pasta::pallas,
     plonk::Error,
 };
-use std::convert::TryInto;
 
 // A word in subregion 3
 // (10, 7, 2, 13)-bit chunks
@@ -48,7 +48,7 @@ impl Subregion3Word {
                     .iter()
                     .chain(c.iter())
                     .chain(d.iter())
-                    .chain(std::iter::repeat(&false).take(20))
+                    .chain(core::iter::repeat(&false).take(20))
                     .copied()
                     .collect::<Vec<_>>();
 

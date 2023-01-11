@@ -2,6 +2,8 @@ use ff::FromUniformBytes;
 
 use super::{grain::Grain, Mds};
 
+use alloc::vec::Vec;
+
 pub(super) fn generate_mds<F: FromUniformBytes<64> + Ord, const T: usize>(
     grain: &mut Grain<F>,
     mut select: usize,
