@@ -9,6 +9,7 @@ use blake2b_simd::Params as Blake2bParams;
 use group::ff::{Field, FromUniformBytes, PrimeField};
 
 use crate::arithmetic::CurveAffine;
+use crate::helpers::{CurveRead, FieldEncoding};
 use crate::poly::{
     Coeff, EvaluationDomain, ExtendedLagrangeCoeff, LagrangeCoeff, PinnedEvaluationDomain,
     Polynomial,
@@ -111,6 +112,57 @@ impl<C: CurveAffine> VerifyingKey<C> {
             permutation: &self.permutation,
             cs: self.cs.pinned(),
         }
+    }
+}
+
+impl<C: CurveAffine> VerifyingKey<C>
+where
+    C::Scalar: FieldEncoding,
+{
+    /// Write VerifyingKey to a buffer
+    pub fn write<W: io::Write>(&self, writer: &mut W) -> io::Result<()> {
+        self.domain.write(writer)?;
+        assert!(self.fixed_commitments.len() <= u32::max_value() as usize);
+        writer.write_all(&(self.fixed_commitments.len() as u32).to_le_bytes())?;
+        for c in &self.fixed_commitments {
+            writer.write_all(c.to_bytes().as_ref())?;
+        }
+        self.permutation.write(writer)?;
+        self.cs.write(writer)?;
+        writer.write_all(&(self.cs_degree as u64).to_le_bytes())?;
+        self.transcript_repr.write(writer)?;
+
+        Ok(())
+    }
+
+    /// Read VerifyingKey from a buffer
+    pub fn read<R: io::Read>(reader: &mut R) -> io::Result<Self> {
+        let domain = EvaluationDomain::<C::Scalar>::read(reader)?;
+        let count = {
+            let mut data = [0u8; 4];
+            reader.read_exact(&mut data[..])?;
+            u32::from_le_bytes(data)
+        };
+        let fixed_commitments: Vec<_> = (0..count)
+            .map(|_| C::read(reader))
+            .collect::<Result<_, _>>()?;
+        let permutation = permutation::VerifyingKey::<C>::read(reader)?;
+        let cs = ConstraintSystem::<C::Scalar>::read(reader)?;
+        let cs_degree = {
+            let mut data = [0u8; 8];
+            reader.read_exact(&mut data[..])?;
+            u64::from_le_bytes(data) as usize
+        };
+        let transcript_repr = C::Scalar::read(reader)?;
+
+        Ok(Self {
+            domain,
+            fixed_commitments,
+            permutation,
+            cs,
+            cs_degree,
+            transcript_repr,
+        })
     }
 }
 

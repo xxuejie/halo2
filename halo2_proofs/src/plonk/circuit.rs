@@ -3,12 +3,14 @@ use core::ops::{Add, Mul};
 use ff::Field;
 use std::{
     convert::TryFrom,
+    io,
     ops::{Neg, Sub},
 };
 
 use super::{lookup, permutation, Assigned, Error};
 use crate::{
     circuit::{Layouter, Region, Value},
+    helpers::FieldEncoding,
     poly::Rotation,
 };
 
@@ -28,7 +30,6 @@ pub struct Column<C: ColumnType> {
 }
 
 impl<C: ColumnType> Column<C> {
-    #[cfg(test)]
     pub(crate) fn new(index: usize, column_type: C) -> Self {
         Column { index, column_type }
     }
@@ -82,6 +83,28 @@ pub enum Any {
     Fixed,
     /// An Instance variant
     Instance,
+}
+
+impl Any {
+    pub(crate) fn write<W: io::Write>(&self, writer: &mut W) -> io::Result<()> {
+        let c = match self {
+            Any::Advice => 'A',
+            Any::Fixed => 'F',
+            Any::Instance => 'I',
+        };
+        writer.write_all(&[c as u8])
+    }
+
+    pub(crate) fn read<R: io::Read>(reader: &mut R) -> io::Result<Self> {
+        let mut c = [0u8; 1];
+        reader.read_exact(&mut c[..])?;
+        match c[0] as char {
+            'A' => Ok(Any::Advice),
+            'F' => Ok(Any::Fixed),
+            'I' => Ok(Any::Instance),
+            _ => Err(io::Error::new(io::ErrorKind::Other, "Invalid column type!")),
+        }
+    }
 }
 
 impl Ord for Any {
@@ -266,6 +289,24 @@ impl Selector {
     pub fn is_simple(&self) -> bool {
         self.1
     }
+
+    pub(crate) fn write<W: io::Write>(&self, writer: &mut W) -> io::Result<()> {
+        writer.write_all(&(self.0 as u64).to_le_bytes())?;
+        let c = if self.1 { 1 } else { 0 };
+        writer.write_all(&[c])
+    }
+
+    pub(crate) fn read<R: io::Read>(reader: &mut R) -> io::Result<Self> {
+        let a = {
+            let mut data = [0u8; 8];
+            reader.read_exact(&mut data[..])?;
+            u64::from_le_bytes(data) as usize
+        };
+        let mut c = [0u8; 1];
+        reader.read_exact(&mut c[..])?;
+        let b = c[0] != 0;
+        Ok(Selector(a, b))
+    }
 }
 
 /// Query of fixed column at a certain relative location
@@ -300,6 +341,45 @@ pub struct InstanceQuery {
     /// Rotation of this query
     pub(crate) rotation: Rotation,
 }
+
+macro_rules! impl_query_read_write_ops {
+    ($name:ident) => {
+        impl $name {
+            pub(crate) fn write<W: io::Write>(&self, writer: &mut W) -> io::Result<()> {
+                writer.write_all(&(self.index as u64).to_le_bytes())?;
+                writer.write_all(&(self.column_index as u64).to_le_bytes())?;
+                writer.write_all(&self.rotation.0.to_le_bytes())
+            }
+
+            pub(crate) fn read<R: io::Read>(reader: &mut R) -> io::Result<Self> {
+                let index = {
+                    let mut data = [0u8; 8];
+                    reader.read_exact(&mut data[..])?;
+                    u64::from_le_bytes(data) as usize
+                };
+                let column_index = {
+                    let mut data = [0u8; 8];
+                    reader.read_exact(&mut data[..])?;
+                    u64::from_le_bytes(data) as usize
+                };
+                let rotation = {
+                    let mut data = [0u8; 4];
+                    reader.read_exact(&mut data[..])?;
+                    i32::from_le_bytes(data)
+                };
+                Ok(Self {
+                    index,
+                    column_index,
+                    rotation: Rotation(rotation),
+                })
+            }
+        }
+    };
+}
+
+impl_query_read_write_ops!(FixedQuery);
+impl_query_read_write_ops!(AdviceQuery);
+impl_query_read_write_ops!(InstanceQuery);
 
 /// A fixed column of a lookup table.
 ///
@@ -673,6 +753,102 @@ impl<F: Field> Expression<F> {
     }
 }
 
+impl<F: Field + FieldEncoding> Expression<F> {
+    pub(crate) fn write<W: io::Write>(&self, writer: &mut W) -> io::Result<()> {
+        match self {
+            Expression::Constant(f) => {
+                writer.write_all(&['C' as u8])?;
+                f.write(writer)
+            }
+            Expression::Selector(s) => {
+                writer.write_all(&['S' as u8])?;
+                s.write(writer)
+            }
+            Expression::Fixed(q) => {
+                writer.write_all(&['F' as u8])?;
+                q.write(writer)
+            }
+            Expression::Advice(q) => {
+                writer.write_all(&['A' as u8])?;
+                q.write(writer)
+            }
+            Expression::Instance(q) => {
+                writer.write_all(&['I' as u8])?;
+                q.write(writer)
+            }
+            Expression::Negated(e) => {
+                writer.write_all(&['N' as u8])?;
+                e.write(writer)
+            }
+            Expression::Sum(lhs, rhs) => {
+                writer.write_all(&['U' as u8])?;
+                lhs.write(writer)?;
+                rhs.write(writer)
+            }
+            Expression::Product(lhs, rhs) => {
+                writer.write_all(&['P' as u8])?;
+                lhs.write(writer)?;
+                rhs.write(writer)
+            }
+            Expression::Scaled(base, factor) => {
+                writer.write_all(&['L' as u8])?;
+                base.write(writer)?;
+                factor.write(writer)
+            }
+        }
+    }
+
+    pub(crate) fn read<R: io::Read>(reader: &mut R) -> io::Result<Self> {
+        let mut c = [0u8; 1];
+        reader.read_exact(&mut c[..])?;
+        match c[0] as char {
+            'C' => {
+                let f = F::read(reader)?;
+                Ok(Expression::Constant(f))
+            }
+            'S' => {
+                let s = Selector::read(reader)?;
+                Ok(Expression::Selector(s))
+            }
+            'F' => {
+                let q = FixedQuery::read(reader)?;
+                Ok(Expression::Fixed(q))
+            }
+            'A' => {
+                let q = AdviceQuery::read(reader)?;
+                Ok(Expression::Advice(q))
+            }
+            'I' => {
+                let q = InstanceQuery::read(reader)?;
+                Ok(Expression::Instance(q))
+            }
+            'N' => {
+                let e = Expression::read(reader)?;
+                Ok(Expression::Negated(Box::new(e)))
+            }
+            'U' => {
+                let lhs = Expression::read(reader)?;
+                let rhs = Expression::read(reader)?;
+                Ok(Expression::Sum(Box::new(lhs), Box::new(rhs)))
+            }
+            'P' => {
+                let lhs = Expression::read(reader)?;
+                let rhs = Expression::read(reader)?;
+                Ok(Expression::Product(Box::new(lhs), Box::new(rhs)))
+            }
+            'L' => {
+                let base = Expression::read(reader)?;
+                let factor = F::read(reader)?;
+                Ok(Expression::Scaled(Box::new(base), factor))
+            }
+            _ => Err(io::Error::new(
+                io::ErrorKind::Other,
+                "Invalid expression type!",
+            )),
+        }
+    }
+}
+
 impl<F: std::fmt::Debug> std::fmt::Debug for Expression<F> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -782,6 +958,32 @@ impl<Col: Into<Column<Any>>> From<(Col, Rotation)> for VirtualCell {
             column: column.into(),
             rotation,
         }
+    }
+}
+
+impl VirtualCell {
+    pub(crate) fn write<W: io::Write>(&self, writer: &mut W) -> io::Result<()> {
+        writer.write_all(&(self.column.index() as u64).to_le_bytes())?;
+        self.column.column_type().write(writer)?;
+        writer.write_all(&self.rotation.0.to_le_bytes())
+    }
+
+    pub(crate) fn read<R: io::Read>(reader: &mut R) -> io::Result<Self> {
+        let index = {
+            let mut data = [0u8; 8];
+            reader.read_exact(&mut data[..])?;
+            u64::from_le_bytes(data) as usize
+        };
+        let column_type = Any::read(reader)?;
+        let rotation = {
+            let mut data = [0u8; 4];
+            reader.read_exact(&mut data[..])?;
+            i32::from_le_bytes(data)
+        };
+        Ok(Self {
+            column: Column::new(index, column_type),
+            rotation: Rotation(rotation),
+        })
     }
 }
 
@@ -928,6 +1130,79 @@ impl<F: Field> Gate<F> {
     }
 }
 
+impl<F: Field + FieldEncoding> Gate<F> {
+    pub(crate) fn write<W: io::Write>(&self, writer: &mut W) -> io::Result<()> {
+        assert!(self.constraint_names.len() <= u32::max_value() as usize);
+        writer.write_all(&(self.constraint_names.len() as u32).to_le_bytes())?;
+
+        assert!(self.polys.len() <= u32::max_value() as usize);
+        writer.write_all(&(self.polys.len() as u32).to_le_bytes())?;
+        for poly in &self.polys {
+            poly.write(writer)?;
+        }
+
+        assert!(self.queried_selectors.len() <= u32::max_value() as usize);
+        writer.write_all(&(self.queried_selectors.len() as u32).to_le_bytes())?;
+        for selector in &self.queried_selectors {
+            selector.write(writer)?;
+        }
+
+        assert!(self.queried_cells.len() <= u32::max_value() as usize);
+        writer.write_all(&(self.queried_cells.len() as u32).to_le_bytes())?;
+        for cell in &self.queried_cells {
+            cell.write(writer)?;
+        }
+
+        Ok(())
+    }
+
+    pub(crate) fn read<R: io::Read>(reader: &mut R) -> io::Result<Self> {
+        // There is no way we can read names from a Reader, then put then
+        // in &'static str values
+        let count = {
+            let mut data = [0u8; 4];
+            reader.read_exact(&mut data[..])?;
+            u32::from_le_bytes(data) as usize
+        };
+        let constraint_names: Vec<_> = (0..count).map(|_| "constraint").collect();
+
+        let poly_count = {
+            let mut data = [0u8; 4];
+            reader.read_exact(&mut data[..])?;
+            u32::from_le_bytes(data) as usize
+        };
+        let polys: Vec<_> = (0..poly_count)
+            .map(|_| Expression::read(reader))
+            .collect::<Result<_, io::Error>>()?;
+
+        let selector_count = {
+            let mut data = [0u8; 4];
+            reader.read_exact(&mut data[..])?;
+            u32::from_le_bytes(data) as usize
+        };
+        let queried_selectors: Vec<_> = (0..selector_count)
+            .map(|_| Selector::read(reader))
+            .collect::<Result<_, io::Error>>()?;
+
+        let cell_count = {
+            let mut data = [0u8; 4];
+            reader.read_exact(&mut data[..])?;
+            u32::from_le_bytes(data) as usize
+        };
+        let queried_cells: Vec<_> = (0..cell_count)
+            .map(|_| VirtualCell::read(reader))
+            .collect::<Result<_, io::Error>>()?;
+
+        Ok(Self {
+            name: "gate",
+            constraint_names,
+            polys,
+            queried_selectors,
+            queried_cells,
+        })
+    }
+}
+
 /// This is a description of the circuit environment, such as the gate, column and
 /// permutation arrangements.
 #[derive(Debug, Clone)]
@@ -963,6 +1238,253 @@ pub struct ConstraintSystem<F: Field> {
     pub(crate) constants: Vec<Column<Fixed>>,
 
     pub(crate) minimum_degree: Option<usize>,
+}
+
+impl<F: Field + FieldEncoding> ConstraintSystem<F> {
+    pub(crate) fn write<W: io::Write>(&self, writer: &mut W) -> io::Result<()> {
+        writer.write_all(&(self.num_fixed_columns as u64).to_le_bytes())?;
+        writer.write_all(&(self.num_advice_columns as u64).to_le_bytes())?;
+        writer.write_all(&(self.num_instance_columns as u64).to_le_bytes())?;
+        writer.write_all(&(self.num_selectors as u64).to_le_bytes())?;
+
+        // TODO: check below, there might be certain Vec whose length part
+        // is already included in values above.
+        assert!(self.selector_map.len() < u32::max_value() as usize);
+        writer.write_all(&(self.selector_map.len() as u32).to_le_bytes())?;
+        for selector in &self.selector_map {
+            writer.write_all(&(selector.index() as u64).to_le_bytes())?;
+        }
+
+        assert!(self.gates.len() < u32::max_value() as usize);
+        writer.write_all(&(self.gates.len() as u32).to_le_bytes())?;
+        for gate in &self.gates {
+            gate.write(writer)?;
+        }
+        assert!(self.advice_queries.len() < u32::max_value() as usize);
+        writer.write_all(&(self.advice_queries.len() as u32).to_le_bytes())?;
+        for (advice, rotation) in &self.advice_queries {
+            writer.write_all(&(advice.index() as u64).to_le_bytes())?;
+            writer.write_all(&rotation.0.to_le_bytes())?;
+        }
+
+        assert!(self.num_advice_queries.len() < u32::max_value() as usize);
+        writer.write_all(&(self.num_advice_queries.len() as u32).to_le_bytes())?;
+        for num in &self.num_advice_queries {
+            writer.write_all(&(*num as u64).to_le_bytes())?;
+        }
+        assert!(self.instance_queries.len() < u32::max_value() as usize);
+        writer.write_all(&(self.instance_queries.len() as u32).to_le_bytes())?;
+        for (query, rotation) in &self.instance_queries {
+            writer.write_all(&(query.index() as u64).to_le_bytes())?;
+            writer.write_all(&rotation.0.to_le_bytes())?;
+        }
+        assert!(self.fixed_queries.len() < u32::max_value() as usize);
+        writer.write_all(&(self.fixed_queries.len() as u32).to_le_bytes())?;
+        for (query, rotation) in &self.fixed_queries {
+            writer.write_all(&(query.index() as u64).to_le_bytes())?;
+            writer.write_all(&rotation.0.to_le_bytes())?;
+        }
+
+        self.permutation.write(writer)?;
+
+        assert!(self.lookups.len() < u32::max_value() as usize);
+        writer.write_all(&(self.lookups.len() as u32).to_le_bytes())?;
+        for lookup in &self.lookups {
+            lookup.write(writer)?;
+        }
+
+        assert!(self.constants.len() < u32::max_value() as usize);
+        writer.write_all(&(self.constants.len() as u32).to_le_bytes())?;
+        for constant in &self.constants {
+            writer.write_all(&(constant.index() as u64).to_le_bytes())?;
+        }
+
+        let c = if self.minimum_degree.is_some() { 1 } else { 0 };
+        writer.write_all(&[c])?;
+        if let Some(degree) = self.minimum_degree {
+            writer.write_all(&(degree as u64).to_le_bytes())?;
+        }
+
+        Ok(())
+    }
+
+    pub(crate) fn read<R: io::Read>(reader: &mut R) -> io::Result<Self> {
+        let num_fixed_columns = {
+            let mut data = [0u8; 8];
+            reader.read_exact(&mut data[..])?;
+            u64::from_le_bytes(data) as usize
+        };
+        let num_advice_columns = {
+            let mut data = [0u8; 8];
+            reader.read_exact(&mut data[..])?;
+            u64::from_le_bytes(data) as usize
+        };
+        let num_instance_columns = {
+            let mut data = [0u8; 8];
+            reader.read_exact(&mut data[..])?;
+            u64::from_le_bytes(data) as usize
+        };
+        let num_selectors = {
+            let mut data = [0u8; 8];
+            reader.read_exact(&mut data[..])?;
+            u64::from_le_bytes(data) as usize
+        };
+
+        let count = {
+            let mut data = [0u8; 4];
+            reader.read_exact(&mut data[..])?;
+            u32::from_le_bytes(data)
+        };
+        let selector_map: Vec<_> = (0..count)
+            .map(|_| {
+                let index = {
+                    let mut data = [0u8; 8];
+                    reader.read_exact(&mut data[..])?;
+                    u64::from_le_bytes(data) as usize
+                };
+                Ok(Column::new(index, Fixed {}))
+            })
+            .collect::<Result<_, io::Error>>()?;
+
+        let count = {
+            let mut data = [0u8; 4];
+            reader.read_exact(&mut data[..])?;
+            u32::from_le_bytes(data)
+        };
+        let gates: Vec<_> = (0..count)
+            .map(|_| Gate::<F>::read(reader))
+            .collect::<Result<_, io::Error>>()?;
+
+        let count = {
+            let mut data = [0u8; 4];
+            reader.read_exact(&mut data[..])?;
+            u32::from_le_bytes(data)
+        };
+        let advice_queries: Vec<_> = (0..count)
+            .map(|_| {
+                let index = {
+                    let mut data = [0u8; 8];
+                    reader.read_exact(&mut data[..])?;
+                    u64::from_le_bytes(data) as usize
+                };
+                let rotation = {
+                    let mut data = [0u8; 4];
+                    reader.read_exact(&mut data[..])?;
+                    i32::from_le_bytes(data)
+                };
+                Ok((Column::new(index, Advice {}), Rotation(rotation)))
+            })
+            .collect::<Result<_, io::Error>>()?;
+
+        let count = {
+            let mut data = [0u8; 4];
+            reader.read_exact(&mut data[..])?;
+            u32::from_le_bytes(data)
+        };
+        let num_advice_queries: Vec<_> = (0..count)
+            .map(|_| {
+                let mut data = [0u8; 8];
+                reader.read_exact(&mut data[..])?;
+                Ok(u64::from_le_bytes(data) as usize)
+            })
+            .collect::<Result<_, io::Error>>()?;
+
+        let count = {
+            let mut data = [0u8; 4];
+            reader.read_exact(&mut data[..])?;
+            u32::from_le_bytes(data)
+        };
+        let instance_queries: Vec<_> = (0..count)
+            .map(|_| {
+                let index = {
+                    let mut data = [0u8; 8];
+                    reader.read_exact(&mut data[..])?;
+                    u64::from_le_bytes(data) as usize
+                };
+                let rotation = {
+                    let mut data = [0u8; 4];
+                    reader.read_exact(&mut data[..])?;
+                    i32::from_le_bytes(data)
+                };
+                Ok((Column::new(index, Instance {}), Rotation(rotation)))
+            })
+            .collect::<Result<_, io::Error>>()?;
+
+        let count = {
+            let mut data = [0u8; 4];
+            reader.read_exact(&mut data[..])?;
+            u32::from_le_bytes(data)
+        };
+        let fixed_queries: Vec<_> = (0..count)
+            .map(|_| {
+                let index = {
+                    let mut data = [0u8; 8];
+                    reader.read_exact(&mut data[..])?;
+                    u64::from_le_bytes(data) as usize
+                };
+                let rotation = {
+                    let mut data = [0u8; 4];
+                    reader.read_exact(&mut data[..])?;
+                    i32::from_le_bytes(data)
+                };
+                Ok((Column::new(index, Fixed {}), Rotation(rotation)))
+            })
+            .collect::<Result<_, io::Error>>()?;
+
+        let permutation = permutation::Argument::read(reader)?;
+
+        let count = {
+            let mut data = [0u8; 4];
+            reader.read_exact(&mut data[..])?;
+            u32::from_le_bytes(data)
+        };
+        let lookups: Vec<_> = (0..count)
+            .map(|_| lookup::Argument::<F>::read(reader))
+            .collect::<Result<_, io::Error>>()?;
+
+        let count = {
+            let mut data = [0u8; 4];
+            reader.read_exact(&mut data[..])?;
+            u32::from_le_bytes(data)
+        };
+        let constants: Vec<_> = (0..count)
+            .map(|_| {
+                let index = {
+                    let mut data = [0u8; 8];
+                    reader.read_exact(&mut data[..])?;
+                    u64::from_le_bytes(data) as usize
+                };
+                Ok(Column::new(index, Fixed {}))
+            })
+            .collect::<Result<_, io::Error>>()?;
+
+        let mut degree_flag = [0u8; 1];
+        reader.read_exact(&mut degree_flag[..])?;
+        let minimum_degree = if degree_flag[0] != 0 {
+            let mut data = [0u8; 8];
+            reader.read_exact(&mut data[..])?;
+            Some(u64::from_le_bytes(data) as usize)
+        } else {
+            None
+        };
+
+        Ok(Self {
+            num_fixed_columns,
+            num_advice_columns,
+            num_instance_columns,
+            num_selectors,
+            selector_map,
+            gates,
+            advice_queries,
+            num_advice_queries,
+            instance_queries,
+            fixed_queries,
+            permutation,
+            lookups,
+            constants,
+            minimum_degree,
+        })
+    }
 }
 
 /// Represents the minimal parameters that determine a `ConstraintSystem`.

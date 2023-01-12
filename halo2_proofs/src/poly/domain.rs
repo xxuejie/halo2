@@ -3,6 +3,7 @@
 
 use crate::{
     arithmetic::{best_fft, parallelize},
+    helpers::FieldEncoding,
     plonk::Assigned,
 };
 
@@ -11,6 +12,7 @@ use super::{Coeff, ExtendedLagrangeCoeff, LagrangeCoeff, Polynomial, Rotation};
 use ff::WithSmallOrderMulGroup;
 use group::ff::{BatchInvert, Field};
 
+use std::io;
 use std::marker::PhantomData;
 
 /// This structure contains precomputed constants and other details needed for
@@ -482,6 +484,101 @@ impl<F: WithSmallOrderMulGroup<3>> EvaluationDomain<F> {
             extended_k: &self.extended_k,
             omega: &self.omega,
         }
+    }
+}
+
+impl<F: Field + FieldEncoding> EvaluationDomain<F> {
+    /// Writes EvaluationDomain to a buffer.
+    pub fn write<W: io::Write>(&self, writer: &mut W) -> io::Result<()> {
+        writer.write_all(&self.n.to_le_bytes())?;
+        writer.write_all(&self.k.to_le_bytes())?;
+        writer.write_all(&self.extended_k.to_le_bytes())?;
+
+        self.omega.write(writer)?;
+        self.omega_inv.write(writer)?;
+        self.extended_omega.write(writer)?;
+        self.extended_omega_inv.write(writer)?;
+
+        self.g_coset.write(writer)?;
+        self.g_coset_inv.write(writer)?;
+
+        writer.write_all(&self.quotient_poly_degree.to_le_bytes())?;
+
+        self.ifft_divisor.write(writer)?;
+        self.extended_ifft_divisor.write(writer)?;
+
+        assert!(self.t_evaluations.len() <= u32::max_value() as usize);
+        writer.write_all(&(self.t_evaluations.len() as u32).to_le_bytes())?;
+        for e in &self.t_evaluations {
+            e.write(writer)?;
+        }
+        self.barycentric_weight.write(writer)?;
+
+        Ok(())
+    }
+
+    /// Reads EvaluationDomain from a buffer.
+    pub fn read<R: io::Read>(reader: &mut R) -> io::Result<Self> {
+        let n = {
+            let mut data = [0u8; 8];
+            reader.read_exact(&mut data[..])?;
+            u64::from_le_bytes(data)
+        };
+        let k = {
+            let mut data = [0u8; 4];
+            reader.read_exact(&mut data[..])?;
+            u32::from_le_bytes(data)
+        };
+        let extended_k = {
+            let mut data = [0u8; 4];
+            reader.read_exact(&mut data[..])?;
+            u32::from_le_bytes(data)
+        };
+
+        let omega = F::read(reader)?;
+        let omega_inv = F::read(reader)?;
+        let extended_omega = F::read(reader)?;
+        let extended_omega_inv = F::read(reader)?;
+
+        let g_coset = F::read(reader)?;
+        let g_coset_inv = F::read(reader)?;
+
+        let quotient_poly_degree = {
+            let mut data = [0u8; 8];
+            reader.read_exact(&mut data[..])?;
+            u64::from_le_bytes(data)
+        };
+
+        let ifft_divisor = F::read(reader)?;
+        let extended_ifft_divisor = F::read(reader)?;
+
+        let count = {
+            let mut data = [0u8; 4];
+            reader.read_exact(&mut data[..])?;
+            u32::from_le_bytes(data)
+        };
+        let t_evaluations: Vec<_> = (0..count)
+            .map(|_| F::read(reader))
+            .collect::<Result<_, _>>()?;
+
+        let barycentric_weight = F::read(reader)?;
+
+        Ok(Self {
+            n,
+            k,
+            extended_k,
+            omega,
+            omega_inv,
+            extended_omega,
+            extended_omega_inv,
+            g_coset,
+            g_coset_inv,
+            quotient_poly_degree,
+            ifft_divisor,
+            extended_ifft_divisor,
+            t_evaluations,
+            barycentric_weight,
+        })
     }
 }
 
