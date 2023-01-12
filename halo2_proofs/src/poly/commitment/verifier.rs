@@ -1,3 +1,4 @@
+use alloc::{vec, vec::Vec};
 use group::{
     ff::{BatchInvert, Field},
     Curve,

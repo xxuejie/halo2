@@ -11,7 +11,8 @@ use super::{Coeff, ExtendedLagrangeCoeff, LagrangeCoeff, Polynomial, Rotation};
 use ff::WithSmallOrderMulGroup;
 use group::ff::{BatchInvert, Field};
 
-use std::marker::PhantomData;
+use alloc::{vec, vec::Vec};
+use core::marker::PhantomData;
 
 /// This structure contains precomputed constants and other details needed for
 /// performing operations on an evaluation domain of size $2^k$ and an extended
@@ -280,6 +281,7 @@ impl<F: WithSmallOrderMulGroup<3>> EvaluationDomain<F> {
     ///     .unwrap()
     ///     .to_vec()
     /// ```
+    #[allow(dead_code)]
     pub(crate) fn get_chunk_of_rotated_extended(
         &self,
         poly: &Polynomial<F, ExtendedLagrangeCoeff>,

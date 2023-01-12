@@ -7,9 +7,10 @@ use crate::plonk::Assigned;
 
 use group::ff::{BatchInvert, Field};
 
-use std::fmt::Debug;
-use std::marker::PhantomData;
-use std::ops::{Add, Deref, DerefMut, Index, IndexMut, Mul, RangeFrom, RangeFull};
+use alloc::vec::Vec;
+use core::fmt::Debug;
+use core::marker::PhantomData;
+use core::ops::{Add, Deref, DerefMut, Index, IndexMut, Mul, RangeFrom, RangeFull};
 
 pub mod commitment;
 mod domain;
@@ -17,6 +18,7 @@ mod evaluator;
 pub mod multiopen;
 
 pub use domain::*;
+#[allow(unused_imports)]
 pub(crate) use evaluator::*;
 
 /// This is an error that could occur during proving or circuit synthesis.
@@ -218,6 +220,7 @@ impl<F: Field> Polynomial<F, LagrangeCoeff> {
     ///     .unwrap()
     ///     .to_vec()
     /// ```
+    #[allow(dead_code)]
     pub(crate) fn get_chunk_of_rotated(
         &self,
         rotation: Rotation,
@@ -234,6 +237,7 @@ impl<F: Field> Polynomial<F, LagrangeCoeff> {
 }
 
 impl<F: Clone + Copy, B> Polynomial<F, B> {
+    #[allow(dead_code)]
     pub(crate) fn get_chunk_of_rotated_helper(
         &self,
         rotation_is_negative: bool,

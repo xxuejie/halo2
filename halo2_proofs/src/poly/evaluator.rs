@@ -1,9 +1,11 @@
-use std::{
+#![allow(dead_code)]
+
+use alloc::{sync::Arc, vec, vec::Vec};
+use core::{
     cmp, fmt,
     hash::{Hash, Hasher},
     marker::PhantomData,
     ops::{Add, Mul, MulAssign, Neg, Sub},
-    sync::Arc,
 };
 
 use ff::WithSmallOrderMulGroup;
@@ -12,13 +14,12 @@ use group::ff::Field;
 use super::{
     Basis, Coeff, EvaluationDomain, ExtendedLagrangeCoeff, LagrangeCoeff, Polynomial, Rotation,
 };
-use crate::multicore;
 
 /// Returns `(chunk_size, num_chunks)` suitable for processing the given polynomial length
 /// in the current parallelization environment.
 fn get_chunk_params(poly_len: usize) -> (usize, usize) {
     // Check the level of parallelization we have available.
-    let num_threads = multicore::current_num_threads();
+    let num_threads = 1;
     // We scale the number of chunks by a constant factor, to ensure that if not all
     // threads are available, we can achieve more uniform throughput and don't end up
     // waiting on a couple of threads to process the last chunks.
@@ -210,20 +211,16 @@ impl<E, F: Field, B: Basis> Evaluator<E, F, B> {
         // Apply `ast` to each chunk in parallel, writing the result into an output
         // polynomial.
         let mut result = B::empty_poly(domain);
-        multicore::scope(|scope| {
-            for (chunk_index, out) in result.chunks_mut(chunk_size).enumerate() {
-                scope.spawn(move |_| {
-                    let ctx = AstContext {
-                        domain,
-                        poly_len,
-                        chunk_size,
-                        chunk_index,
-                        polys: &self.polys,
-                    };
-                    out.copy_from_slice(&recurse(ast, &ctx));
-                });
-            }
-        });
+        for (chunk_index, out) in result.chunks_mut(chunk_size).enumerate() {
+            let ctx = AstContext {
+                domain,
+                poly_len,
+                chunk_size,
+                chunk_index,
+                polys: &self.polys,
+            };
+            out.copy_from_slice(&recurse(ast, &ctx));
+        }
         result
     }
 }

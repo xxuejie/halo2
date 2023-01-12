@@ -1,8 +1,7 @@
-use std::marker::PhantomData;
+use core::marker::PhantomData;
 
 use crate::arithmetic::CurveAffine;
 
-mod prover;
 mod verifier;
 
 /// A vanishing argument.

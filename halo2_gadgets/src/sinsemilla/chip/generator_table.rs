@@ -9,6 +9,8 @@ use super::{CommitDomains, FixedPoints, HashDomains};
 use crate::sinsemilla::primitives::{self as sinsemilla, SINSEMILLA_S};
 use pasta_curves::pallas;
 
+use alloc::vec;
+
 /// Table containing independent generators S[0..2^k]
 #[derive(Eq, PartialEq, Copy, Clone, Debug)]
 pub struct GeneratorTableConfig {

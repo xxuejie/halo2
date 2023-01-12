@@ -8,6 +8,8 @@ use group::{
 use halo2_proofs::arithmetic::lagrange_interpolate;
 use pasta_curves::{arithmetic::CurveAffine, pallas};
 
+use alloc::vec::Vec;
+
 /// Window size for fixed-base scalar multiplication
 pub const FIXED_BASE_WINDOW_SIZE: usize = 3;
 
@@ -229,6 +231,7 @@ pub fn test_lagrange_coeffs<C: CurveAffine>(base: C, num_windows: usize) {
 
 #[cfg(test)]
 mod tests {
+    use alloc::vec::Vec;
     use ff::FromUniformBytes;
     use group::{ff::Field, Curve, Group};
     use pasta_curves::{arithmetic::CurveAffine, pallas};

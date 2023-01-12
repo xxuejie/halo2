@@ -7,19 +7,18 @@ use super::{Coeff, LagrangeCoeff, Polynomial};
 use crate::arithmetic::{best_fft, best_multiexp, parallelize, CurveAffine, CurveExt};
 use crate::helpers::CurveRead;
 
+use alloc::{vec, vec::Vec};
+use core::ops::{Add, AddAssign, Mul, MulAssign};
 use ff::{Field, PrimeField};
 use group::{prime::PrimeCurveAffine, Curve, Group};
-use std::ops::{Add, AddAssign, Mul, MulAssign};
 
 mod msm;
-mod prover;
 mod verifier;
 
 pub use msm::MSM;
-pub use prover::create_proof;
 pub use verifier::{verify_proof, Accumulator, Guard};
 
-use std::io;
+use crate::io;
 
 /// These are the public parameters for the polynomial commitment scheme.
 #[derive(Clone, Debug)]
@@ -160,21 +159,6 @@ impl<C: CurveAffine> Params<C> {
         self.g.clone()
     }
 
-    /// Writes params to a buffer.
-    pub fn write<W: io::Write>(&self, writer: &mut W) -> io::Result<()> {
-        writer.write_all(&self.k.to_le_bytes())?;
-        for g_element in &self.g {
-            writer.write_all(g_element.to_bytes().as_ref())?;
-        }
-        for g_lagrange_element in &self.g_lagrange {
-            writer.write_all(g_lagrange_element.to_bytes().as_ref())?;
-        }
-        writer.write_all(self.w.to_bytes().as_ref())?;
-        writer.write_all(self.u.to_bytes().as_ref())?;
-
-        Ok(())
-    }
-
     /// Reads params from a buffer.
     pub fn read<R: io::Read>(reader: &mut R) -> io::Result<Self> {
         let mut k = [0u8; 4];
@@ -294,81 +278,4 @@ fn test_commit_lagrange_eqaffine() {
     let alpha = Blind(Fp::random(OsRng));
 
     assert_eq!(params.commit(&b, alpha), params.commit_lagrange(&a, alpha));
-}
-
-#[test]
-fn test_opening_proof() {
-    const K: u32 = 6;
-
-    use ff::Field;
-    use rand_core::OsRng;
-
-    use super::{
-        commitment::{Blind, Params},
-        EvaluationDomain,
-    };
-    use crate::arithmetic::eval_polynomial;
-    use crate::pasta::{EpAffine, Fq};
-    use crate::transcript::{
-        Blake2bRead, Blake2bWrite, Challenge255, Transcript, TranscriptRead, TranscriptWrite,
-    };
-
-    let rng = OsRng;
-
-    let params = Params::<EpAffine>::new(K);
-    let mut params_buffer = vec![];
-    params.write(&mut params_buffer).unwrap();
-    let params: Params<EpAffine> = Params::read::<_>(&mut &params_buffer[..]).unwrap();
-
-    let domain = EvaluationDomain::new(1, K);
-
-    let mut px = domain.empty_coeff();
-
-    for (i, a) in px.iter_mut().enumerate() {
-        *a = Fq::from(i as u64);
-    }
-
-    let blind = Blind(Fq::random(rng));
-
-    let p = params.commit(&px, blind).to_affine();
-
-    let mut transcript = Blake2bWrite::<Vec<u8>, EpAffine, Challenge255<EpAffine>>::init(vec![]);
-    transcript.write_point(p).unwrap();
-    let x = transcript.squeeze_challenge_scalar::<()>();
-    // Evaluate the polynomial
-    let v = eval_polynomial(&px, *x);
-    transcript.write_scalar(v).unwrap();
-
-    let (proof, ch_prover) = {
-        create_proof(&params, rng, &mut transcript, &px, blind, *x).unwrap();
-        let ch_prover = transcript.squeeze_challenge();
-        (transcript.finalize(), ch_prover)
-    };
-
-    // Verify the opening proof
-    let mut transcript = Blake2bRead::<&[u8], EpAffine, Challenge255<EpAffine>>::init(&proof[..]);
-    let p_prime = transcript.read_point().unwrap();
-    assert_eq!(p, p_prime);
-    let x_prime = transcript.squeeze_challenge_scalar::<()>();
-    assert_eq!(*x, *x_prime);
-    let v_prime = transcript.read_scalar().unwrap();
-    assert_eq!(v, v_prime);
-
-    let mut commitment_msm = params.empty_msm();
-    commitment_msm.append_term(Field::ONE, p);
-    let guard = verify_proof(&params, commitment_msm, &mut transcript, *x, v).unwrap();
-    let ch_verifier = transcript.squeeze_challenge();
-    assert_eq!(*ch_prover, *ch_verifier);
-
-    // Test guard behavior prior to checking another proof
-    {
-        // Test use_challenges()
-        let msm_challenges = guard.clone().use_challenges();
-        assert!(msm_challenges.eval());
-
-        // Test use_g()
-        let g = guard.compute_g();
-        let (msm_g, _accumulator) = guard.clone().use_g(g);
-        assert!(msm_g.eval());
-    }
 }

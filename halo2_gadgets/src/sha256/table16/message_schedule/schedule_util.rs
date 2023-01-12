@@ -6,6 +6,8 @@ use halo2_proofs::{
     plonk::Error,
 };
 
+use alloc::format;
+
 #[cfg(test)]
 use super::super::{super::BLOCK_SIZE, BlockWord, ROUNDS};
 

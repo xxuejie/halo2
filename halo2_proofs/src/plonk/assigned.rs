@@ -1,4 +1,4 @@
-use std::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
+use core::ops::{Add, AddAssign, Mul, MulAssign, Neg, Sub, SubAssign};
 
 use group::ff::Field;
 
@@ -445,11 +445,12 @@ mod tests {
 
 #[cfg(test)]
 mod proptests {
-    use std::{
+    use core::{
         cmp,
         ops::{Add, Mul, Neg, Sub},
     };
 
+    use alloc::vec::Vec;
     use group::ff::Field;
     use pasta_curves::Fp;
     use proptest::{collection::vec, prelude::*, sample::select};

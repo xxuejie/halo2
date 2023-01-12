@@ -1,11 +1,12 @@
 use super::super::{util::*, AssignedBits, BlockWord, SpreadVar, SpreadWord, Table16Assignment};
 use super::{schedule_util::*, MessageScheduleConfig};
+use alloc::{vec, vec::Vec};
+use core::convert::TryInto;
 use halo2_proofs::{
     circuit::{Region, Value},
     pasta::pallas,
     plonk::Error,
 };
-use std::convert::TryInto;
 
 // A word in subregion 1
 // (3, 4, 11, 14)-bit chunks
@@ -47,7 +48,7 @@ impl Subregion1Word {
                     .iter()
                     .chain(c.iter())
                     .chain(d.iter())
-                    .chain(std::iter::repeat(&false).take(6))
+                    .chain(core::iter::repeat(&false).take(6))
                     .copied()
                     .collect::<Vec<_>>();
                 let xor_1 = c

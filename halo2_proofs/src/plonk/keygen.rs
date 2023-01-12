@@ -1,6 +1,7 @@
 #![allow(clippy::int_plus_one)]
 
-use std::ops::Range;
+use alloc::{string::String, vec, vec::Vec};
+use core::ops::Range;
 
 use ff::{Field, FromUniformBytes};
 use group::Curve;
@@ -10,7 +11,7 @@ use super::{
         Advice, Any, Assignment, Circuit, Column, ConstraintSystem, Fixed, FloorPlanner, Instance,
         Selector,
     },
-    permutation, Assigned, Error, LagrangeCoeff, Polynomial, ProvingKey, VerifyingKey,
+    permutation, Assigned, Error, LagrangeCoeff, Polynomial, VerifyingKey,
 };
 use crate::{
     arithmetic::CurveAffine,
@@ -52,7 +53,7 @@ struct Assembly<F: Field> {
     selectors: Vec<Vec<bool>>,
     // A range of available rows for assignment and copies.
     usable_rows: Range<usize>,
-    _marker: std::marker::PhantomData<F>,
+    _marker: core::marker::PhantomData<F>,
 }
 
 impl<F: Field> Assignment<F> for Assembly<F> {
@@ -207,7 +208,7 @@ where
         permutation: permutation::keygen::Assembly::new(params.n as usize, &cs.permutation),
         selectors: vec![vec![false; params.n as usize]; cs.num_selectors],
         usable_rows: 0..params.n as usize - (cs.blinding_factors() + 1),
-        _marker: std::marker::PhantomData,
+        _marker: core::marker::PhantomData,
     };
 
     // Synthesize the circuit to obtain URS
@@ -241,97 +242,4 @@ where
         permutation_vk,
         cs,
     ))
-}
-
-/// Generate a `ProvingKey` from a `VerifyingKey` and an instance of `Circuit`.
-pub fn keygen_pk<C, ConcreteCircuit>(
-    params: &Params<C>,
-    vk: VerifyingKey<C>,
-    circuit: &ConcreteCircuit,
-) -> Result<ProvingKey<C>, Error>
-where
-    C: CurveAffine,
-    ConcreteCircuit: Circuit<C::Scalar>,
-{
-    let mut cs = ConstraintSystem::default();
-    let config = ConcreteCircuit::configure(&mut cs);
-
-    let cs = cs;
-
-    if (params.n as usize) < cs.minimum_rows() {
-        return Err(Error::not_enough_rows_available(params.k));
-    }
-
-    let mut assembly: Assembly<C::Scalar> = Assembly {
-        k: params.k,
-        fixed: vec![vk.domain.empty_lagrange_assigned(); cs.num_fixed_columns],
-        permutation: permutation::keygen::Assembly::new(params.n as usize, &cs.permutation),
-        selectors: vec![vec![false; params.n as usize]; cs.num_selectors],
-        usable_rows: 0..params.n as usize - (cs.blinding_factors() + 1),
-        _marker: std::marker::PhantomData,
-    };
-
-    // Synthesize the circuit to obtain URS
-    ConcreteCircuit::FloorPlanner::synthesize(
-        &mut assembly,
-        circuit,
-        config,
-        cs.constants.clone(),
-    )?;
-
-    let mut fixed = batch_invert_assigned(assembly.fixed);
-    let (cs, selector_polys) = cs.compress_selectors(assembly.selectors);
-    fixed.extend(
-        selector_polys
-            .into_iter()
-            .map(|poly| vk.domain.lagrange_from_vec(poly)),
-    );
-
-    let fixed_polys: Vec<_> = fixed
-        .iter()
-        .map(|poly| vk.domain.lagrange_to_coeff(poly.clone()))
-        .collect();
-
-    let fixed_cosets = fixed_polys
-        .iter()
-        .map(|poly| vk.domain.coeff_to_extended(poly.clone()))
-        .collect();
-
-    let permutation_pk = assembly
-        .permutation
-        .build_pk(params, &vk.domain, &cs.permutation);
-
-    // Compute l_0(X)
-    // TODO: this can be done more efficiently
-    let mut l0 = vk.domain.empty_lagrange();
-    l0[0] = C::Scalar::ONE;
-    let l0 = vk.domain.lagrange_to_coeff(l0);
-    let l0 = vk.domain.coeff_to_extended(l0);
-
-    // Compute l_blind(X) which evaluates to 1 for each blinding factor row
-    // and 0 otherwise over the domain.
-    let mut l_blind = vk.domain.empty_lagrange();
-    for evaluation in l_blind[..].iter_mut().rev().take(cs.blinding_factors()) {
-        *evaluation = C::Scalar::ONE;
-    }
-    let l_blind = vk.domain.lagrange_to_coeff(l_blind);
-    let l_blind = vk.domain.coeff_to_extended(l_blind);
-
-    // Compute l_last(X) which evaluates to 1 on the first inactive row (just
-    // before the blinding factors) and 0 otherwise over the domain
-    let mut l_last = vk.domain.empty_lagrange();
-    l_last[params.n as usize - cs.blinding_factors() - 1] = C::Scalar::ONE;
-    let l_last = vk.domain.lagrange_to_coeff(l_last);
-    let l_last = vk.domain.coeff_to_extended(l_last);
-
-    Ok(ProvingKey {
-        vk,
-        l0,
-        l_blind,
-        l_last,
-        fixed_values: fixed,
-        fixed_polys,
-        fixed_cosets,
-        permutation: permutation_pk,
-    })
 }

@@ -1,3 +1,4 @@
+use alloc::vec::Vec;
 use halo2_proofs::circuit::Value;
 
 pub const MASK_EVEN_32: u32 = 0x55555555;

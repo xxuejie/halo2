@@ -31,12 +31,13 @@ use halo2_proofs::{
 
 use super::range_check;
 
-use std::marker::PhantomData;
+use alloc::{format, vec, vec::Vec};
+use core::marker::PhantomData;
 
 /// The running sum $[z_0, ..., z_W]$. If created in strict mode, $z_W = 0$.
 #[derive(Debug)]
 pub struct RunningSum<F: PrimeFieldBits>(Vec<AssignedCell<F, F>>);
-impl<F: PrimeFieldBits> std::ops::Deref for RunningSum<F> {
+impl<F: PrimeFieldBits> core::ops::Deref for RunningSum<F> {
     type Target = Vec<AssignedCell<F, F>>;
 
     fn deref(&self) -> &Vec<AssignedCell<F, F>> {
@@ -54,6 +55,7 @@ pub struct RunningSumConfig<F: PrimeFieldBits, const WINDOW_NUM_BITS: usize> {
 
 impl<F: PrimeFieldBits, const WINDOW_NUM_BITS: usize> RunningSumConfig<F, WINDOW_NUM_BITS> {
     /// Returns the q_range_check selector of this [`RunningSumConfig`].
+    #[allow(dead_code)]
     pub(crate) fn q_range_check(&self) -> Selector {
         self.q_range_check
     }

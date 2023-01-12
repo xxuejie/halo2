@@ -2,13 +2,13 @@
 
 use super::{bool_check, ternary, UtilitiesInstructions};
 
+use core::marker::PhantomData;
 use group::ff::{Field, PrimeField};
 use halo2_proofs::{
     circuit::{AssignedCell, Chip, Layouter, Value},
     plonk::{Advice, Column, ConstraintSystem, Constraints, Error, Selector},
     poly::Rotation,
 };
-use std::marker::PhantomData;
 
 /// Instructions for a conditional swap gadget.
 pub trait CondSwapInstructions<F: Field>: UtilitiesInstructions<F> {

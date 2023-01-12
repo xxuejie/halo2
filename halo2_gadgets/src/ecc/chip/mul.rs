@@ -3,7 +3,8 @@ use crate::{
     sinsemilla::primitives as sinsemilla,
     utilities::{bool_check, lookup_range_check::LookupRangeCheckConfig, ternary},
 };
-use std::{
+use alloc::vec::Vec;
+use core::{
     convert::TryInto,
     ops::{Deref, Range},
 };
@@ -274,7 +275,7 @@ impl Config {
                 }
 
                 let zs = {
-                    let mut zs = std::iter::empty()
+                    let mut zs = core::iter::empty()
                         .chain(Some(z_init))
                         .chain(zs_incomplete_hi.into_iter())
                         .chain(zs_incomplete_lo.into_iter())
@@ -485,7 +486,7 @@ pub mod tests {
         let column = chip.config().advices[0];
 
         fn constrain_equal_non_id<
-            EccChip: EccInstructions<pallas::Affine, Point = EccPoint> + Clone + Eq + std::fmt::Debug,
+            EccChip: EccInstructions<pallas::Affine, Point = EccPoint> + Clone + Eq + core::fmt::Debug,
         >(
             chip: EccChip,
             mut layouter: impl Layouter<pallas::Base>,

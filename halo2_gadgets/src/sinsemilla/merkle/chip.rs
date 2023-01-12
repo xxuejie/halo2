@@ -26,6 +26,8 @@ use crate::{
 };
 use group::ff::PrimeField;
 
+use alloc::{format, vec, vec::Vec};
+
 /// Configuration for the `MerkleChip` implementation.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct MerkleConfig<Hash, Commit, Fixed>
