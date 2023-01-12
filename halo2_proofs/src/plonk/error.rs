@@ -1,6 +1,5 @@
-use std::error;
-use std::fmt;
-use std::io;
+use alloc::string::{String, ToString};
+use core::fmt;
 
 use super::{Any, Column};
 
@@ -19,8 +18,6 @@ pub enum Error {
     BoundsFailure,
     /// Opening error
     Opening,
-    /// Transcript error
-    Transcript(io::Error),
     /// `k` is too small for the given circuit.
     NotEnoughRowsAvailable {
         /// The current value of `k` being used.
@@ -36,12 +33,13 @@ pub enum Error {
     /// The instance sets up a copy constraint involving a column that has not been
     /// included in the permutation.
     ColumnNotInPermutation(Column<Any>),
+    /// Other error
+    Transcript(String),
 }
 
-impl From<io::Error> for Error {
-    fn from(error: io::Error) -> Self {
-        // The only place we can get io::Error from is the transcript.
-        Error::Transcript(error)
+impl From<&str> for Error {
+    fn from(error: &str) -> Self {
+        Error::Transcript(error.to_string())
     }
 }
 
@@ -78,15 +76,6 @@ impl fmt::Display for Error {
                 "Column {:?} must be included in the permutation. Help: try applying `meta.enable_equalty` on the column",
                 column
             ),
-        }
-    }
-}
-
-impl error::Error for Error {
-    fn source(&self) -> Option<&(dyn error::Error + 'static)> {
-        match self {
-            Error::Transcript(e) => Some(e),
-            _ => None,
         }
     }
 }

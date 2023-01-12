@@ -1,7 +1,7 @@
 //! This module provides common utilities, traits and structures for group,
 //! field and polynomial arithmetic.
 
-use super::multicore;
+use alloc::{vec, vec::Vec};
 pub use ff::Field;
 use group::{
     ff::{BatchInvert, PrimeField},
@@ -25,99 +25,12 @@ where
 {
 }
 
-fn multiexp_serial<C: CurveAffine>(coeffs: &[C::Scalar], bases: &[C], acc: &mut C::Curve) {
-    let coeffs: Vec<_> = coeffs.iter().map(|a| a.to_repr()).collect();
-
-    let c = if bases.len() < 4 {
-        1
-    } else if bases.len() < 32 {
-        3
-    } else {
-        (f64::from(bases.len() as u32)).ln().ceil() as usize
-    };
-
-    fn get_at<F: PrimeField>(segment: usize, c: usize, bytes: &F::Repr) -> usize {
-        let skip_bits = segment * c;
-        let skip_bytes = skip_bits / 8;
-
-        if skip_bytes >= 32 {
-            return 0;
-        }
-
-        let mut v = [0; 8];
-        for (v, o) in v.iter_mut().zip(bytes.as_ref()[skip_bytes..].iter()) {
-            *v = *o;
-        }
-
-        let mut tmp = u64::from_le_bytes(v);
-        tmp >>= skip_bits - (skip_bytes * 8);
-        tmp %= 1 << c;
-
-        tmp as usize
-    }
-
-    let segments = (256 / c) + 1;
-
-    for current_segment in (0..segments).rev() {
-        for _ in 0..c {
-            *acc = acc.double();
-        }
-
-        #[derive(Clone, Copy)]
-        enum Bucket<C: CurveAffine> {
-            None,
-            Affine(C),
-            Projective(C::Curve),
-        }
-
-        impl<C: CurveAffine> Bucket<C> {
-            fn add_assign(&mut self, other: &C) {
-                *self = match *self {
-                    Bucket::None => Bucket::Affine(*other),
-                    Bucket::Affine(a) => Bucket::Projective(a + *other),
-                    Bucket::Projective(mut a) => {
-                        a += *other;
-                        Bucket::Projective(a)
-                    }
-                }
-            }
-
-            fn add(self, mut other: C::Curve) -> C::Curve {
-                match self {
-                    Bucket::None => other,
-                    Bucket::Affine(a) => {
-                        other += a;
-                        other
-                    }
-                    Bucket::Projective(a) => other + &a,
-                }
-            }
-        }
-
-        let mut buckets: Vec<Bucket<C>> = vec![Bucket::None; (1 << c) - 1];
-
-        for (coeff, base) in coeffs.iter().zip(bases.iter()) {
-            let coeff = get_at::<C::Scalar>(current_segment, c, coeff);
-            if coeff != 0 {
-                buckets[coeff - 1].add_assign(base);
-            }
-        }
-
-        // Summation by parts
-        // e.g. 3a + 2b + 1c = a +
-        //                    (a) + b +
-        //                    ((a) + b) + c
-        let mut running_sum = C::Curve::identity();
-        for exp in buckets.into_iter().rev() {
-            running_sum = exp.add(running_sum);
-            *acc += &running_sum;
-        }
-    }
-}
-
 /// Performs a small multi-exponentiation operation.
 /// Uses the double-and-add algorithm with doublings shared across points.
-pub fn small_multiexp<C: CurveAffine>(coeffs: &[C::Scalar], bases: &[C]) -> C::Curve {
+///
+/// NOTE: we are using small_multiexp implementation in halo2_proofs library,
+/// since the (slightly) faster one has a dependency of ln calculation on f64.
+pub fn best_multiexp<C: CurveAffine>(coeffs: &[C::Scalar], bases: &[C]) -> C::Curve {
     let coeffs: Vec<_> = coeffs.iter().map(|a| a.to_repr()).collect();
     let mut acc = C::Curve::identity();
 
@@ -137,40 +50,6 @@ pub fn small_multiexp<C: CurveAffine>(coeffs: &[C::Scalar], bases: &[C]) -> C::C
     }
 
     acc
-}
-
-/// Performs a multi-exponentiation operation.
-///
-/// This function will panic if coeffs and bases have a different length.
-///
-/// This will use multithreading if beneficial.
-pub fn best_multiexp<C: CurveAffine>(coeffs: &[C::Scalar], bases: &[C]) -> C::Curve {
-    assert_eq!(coeffs.len(), bases.len());
-
-    let num_threads = multicore::current_num_threads();
-    if coeffs.len() > num_threads {
-        let chunk = coeffs.len() / num_threads;
-        let num_chunks = coeffs.chunks(chunk).len();
-        let mut results = vec![C::Curve::identity(); num_chunks];
-        multicore::scope(|scope| {
-            let chunk = coeffs.len() / num_threads;
-
-            for ((coeffs, bases), acc) in coeffs
-                .chunks(chunk)
-                .zip(bases.chunks(chunk))
-                .zip(results.iter_mut())
-            {
-                scope.spawn(move |_| {
-                    multiexp_serial(coeffs, bases, acc);
-                });
-            }
-        });
-        results.iter().fold(C::Curve::identity(), |a, b| a + b)
-    } else {
-        let mut acc = C::Curve::identity();
-        multiexp_serial(coeffs, bases, &mut acc);
-        acc
-    }
 }
 
 /// Performs a radix-$2$ Fast-Fourier Transformation (FFT) on a vector of size
@@ -193,7 +72,7 @@ pub fn best_fft<Scalar: Field, G: FftGroup<Scalar>>(a: &mut [G], omega: Scalar, 
         r
     }
 
-    let threads = multicore::current_num_threads();
+    let threads = 1;
     let log_threads = log2_floor(threads);
     let n = a.len();
     assert_eq!(n, 1 << log_n);
@@ -262,10 +141,8 @@ pub fn recursive_butterfly_arithmetic<Scalar: Field, G: FftGroup<Scalar>>(
         a[1] -= &t;
     } else {
         let (left, right) = a.split_at_mut(n / 2);
-        multicore::join(
-            || recursive_butterfly_arithmetic(left, n / 2, twiddle_chunk * 2, twiddles),
-            || recursive_butterfly_arithmetic(right, n / 2, twiddle_chunk * 2, twiddles),
-        );
+        recursive_butterfly_arithmetic(left, n / 2, twiddle_chunk * 2, twiddles);
+        recursive_butterfly_arithmetic(right, n / 2, twiddle_chunk * 2, twiddles);
 
         // case when twiddle factor is one
         let (a, left) = left.split_at_mut(1);
@@ -338,21 +215,16 @@ where
 /// performed over a mutable slice.
 pub fn parallelize<T: Send, F: Fn(&mut [T], usize) + Send + Sync + Clone>(v: &mut [T], f: F) {
     let n = v.len();
-    let num_threads = multicore::current_num_threads();
+    let num_threads = 1;
     let mut chunk = n / num_threads;
     if chunk < num_threads {
         chunk = n;
     }
 
-    multicore::scope(|scope| {
-        for (chunk_num, v) in v.chunks_mut(chunk).enumerate() {
-            let f = f.clone();
-            scope.spawn(move |_| {
-                let start = chunk_num * chunk;
-                f(v, start);
-            });
-        }
-    });
+    for (chunk_num, v) in v.chunks_mut(chunk).enumerate() {
+        let start = chunk_num * chunk;
+        f(v, start);
+    }
 }
 
 fn log2_floor(num: usize) -> u32 {
@@ -407,13 +279,13 @@ pub fn lagrange_interpolate<F: Field>(points: &[F], evals: &[F]) -> Vec<F> {
                 product.resize(tmp.len() + 1, F::ZERO);
                 for ((a, b), product) in tmp
                     .iter()
-                    .chain(std::iter::once(&F::ZERO))
-                    .zip(std::iter::once(&F::ZERO).chain(tmp.iter()))
+                    .chain(core::iter::once(&F::ZERO))
+                    .zip(core::iter::once(&F::ZERO).chain(tmp.iter()))
                     .zip(product.iter_mut())
                 {
                     *product = *a * (-denom * x_k) + *b * denom;
                 }
-                std::mem::swap(&mut tmp, &mut product);
+                core::mem::swap(&mut tmp, &mut product);
             }
             assert_eq!(tmp.len(), points.len());
             assert_eq!(product.len(), points.len() - 1);

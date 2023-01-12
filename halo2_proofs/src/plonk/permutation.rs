@@ -1,15 +1,9 @@
 use super::circuit::{Any, Column};
-use crate::{
-    arithmetic::CurveAffine,
-    helpers::CurveRead,
-    poly::{Coeff, ExtendedLagrangeCoeff, LagrangeCoeff, Polynomial},
-};
+use crate::{arithmetic::CurveAffine, helpers::CurveRead, io};
+use alloc::{vec, vec::Vec};
 
 pub(crate) mod keygen;
-pub(crate) mod prover;
 pub(crate) mod verifier;
-
-use std::io;
 
 /// A permutation argument.
 #[derive(Debug, Clone)]
@@ -67,6 +61,7 @@ impl Argument {
         }
     }
 
+    #[allow(dead_code)]
     pub(crate) fn get_columns(&self) -> Vec<Column<Any>> {
         self.columns.clone()
     }
@@ -129,12 +124,4 @@ impl<C: CurveAffine> VerifyingKey<C> {
             .collect::<Result<_, _>>()?;
         Ok(Self { commitments })
     }
-}
-
-/// The proving key for a single permutation argument.
-#[derive(Clone, Debug)]
-pub(crate) struct ProvingKey<C: CurveAffine> {
-    permutations: Vec<Polynomial<C::Scalar, LagrangeCoeff>>,
-    polys: Vec<Polynomial<C::Scalar, Coeff>>,
-    pub(super) cosets: Vec<Polynomial<C::Scalar, ExtendedLagrangeCoeff>>,
 }

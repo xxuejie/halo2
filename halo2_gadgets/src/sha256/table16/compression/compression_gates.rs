@@ -1,8 +1,8 @@
 use super::super::{util::*, Gate};
 
+use core::marker::PhantomData;
 use group::ff::{Field, PrimeField};
 use halo2_proofs::plonk::{Constraint, Constraints, Expression};
-use std::marker::PhantomData;
 
 pub struct CompressionGate<F: Field>(PhantomData<F>);
 
@@ -289,7 +289,7 @@ impl<F: PrimeField> CompressionGate<F> {
             // evens - spread_e_hi = spread_e_neg_hi
             let hi_check = spread_e_neg_hi.clone() + spread_e_hi + (evens * (-F::ONE));
 
-            std::iter::empty()
+            core::iter::empty()
                 .chain(Some(("lo_check", lo_check)))
                 .chain(Some(("hi_check", hi_check)))
         };

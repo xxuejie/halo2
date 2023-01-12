@@ -5,15 +5,14 @@
 //! [halo]: https://eprint.iacr.org/2019/1021
 //! [plonk]: https://eprint.iacr.org/2019/953
 
+use alloc::{format, vec::Vec};
 use blake2b_simd::Params as Blake2bParams;
 use group::ff::{Field, FromUniformBytes, PrimeField};
 
 use crate::arithmetic::CurveAffine;
 use crate::helpers::{CurveRead, FieldEncoding};
-use crate::poly::{
-    Coeff, EvaluationDomain, ExtendedLagrangeCoeff, LagrangeCoeff, PinnedEvaluationDomain,
-    Polynomial,
-};
+use crate::io;
+use crate::poly::{EvaluationDomain, LagrangeCoeff, PinnedEvaluationDomain, Polynomial};
 use crate::transcript::{ChallengeScalar, EncodedChallenge, Transcript};
 
 mod assigned;
@@ -24,17 +23,13 @@ mod lookup;
 pub(crate) mod permutation;
 mod vanishing;
 
-mod prover;
 mod verifier;
 
 pub use assigned::*;
 pub use circuit::*;
 pub use error::*;
 pub use keygen::*;
-pub use prover::*;
 pub use verifier::*;
-
-use std::io;
 
 /// This is a verifying key which allows for the verification of proofs for a
 /// particular circuit.
@@ -95,7 +90,7 @@ impl<C: CurveAffine> VerifyingKey<C> {
     pub fn hash_into<E: EncodedChallenge<C>, T: Transcript<C, E>>(
         &self,
         transcript: &mut T,
-    ) -> io::Result<()> {
+    ) -> crate::io::Result<()> {
         transcript.common_scalar(self.transcript_repr)?;
 
         Ok(())
@@ -177,26 +172,6 @@ pub struct PinnedVerificationKey<'a, C: CurveAffine> {
     cs: PinnedConstraintSystem<'a, C::Scalar>,
     fixed_commitments: &'a Vec<C>,
     permutation: &'a permutation::VerifyingKey<C>,
-}
-/// This is a proving key which allows for the creation of proofs for a
-/// particular circuit.
-#[derive(Clone, Debug)]
-pub struct ProvingKey<C: CurveAffine> {
-    vk: VerifyingKey<C>,
-    l0: Polynomial<C::Scalar, ExtendedLagrangeCoeff>,
-    l_blind: Polynomial<C::Scalar, ExtendedLagrangeCoeff>,
-    l_last: Polynomial<C::Scalar, ExtendedLagrangeCoeff>,
-    fixed_values: Vec<Polynomial<C::Scalar, LagrangeCoeff>>,
-    fixed_polys: Vec<Polynomial<C::Scalar, Coeff>>,
-    fixed_cosets: Vec<Polynomial<C::Scalar, ExtendedLagrangeCoeff>>,
-    permutation: permutation::ProvingKey<C>,
-}
-
-impl<C: CurveAffine> ProvingKey<C> {
-    /// Get the underlying [`VerifyingKey`].
-    pub fn get_vk(&self) -> &VerifyingKey<C> {
-        &self.vk
-    }
 }
 
 impl<C: CurveAffine> VerifyingKey<C> {

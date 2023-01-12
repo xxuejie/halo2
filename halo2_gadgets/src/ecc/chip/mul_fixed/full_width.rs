@@ -10,6 +10,8 @@ use halo2_proofs::{
 };
 use pasta_curves::pallas;
 
+use alloc::{format, vec::Vec};
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Config<Fixed: FixedPoints<pallas::Affine>> {
     q_mul_fixed_full: Selector,

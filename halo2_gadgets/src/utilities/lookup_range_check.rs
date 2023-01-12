@@ -1,12 +1,13 @@
 //! Make use of a K-bit lookup table to decompose a field element into K-bit
 //! words.
 
+use alloc::{format, vec};
+use core::{convert::TryInto, marker::PhantomData};
 use halo2_proofs::{
     circuit::{AssignedCell, Layouter, Region},
     plonk::{Advice, Column, ConstraintSystem, Constraints, Error, Selector, TableColumn},
     poly::Rotation,
 };
-use std::{convert::TryInto, marker::PhantomData};
 
 use ff::PrimeFieldBits;
 
@@ -15,7 +16,7 @@ use super::*;
 /// The running sum $[z_0, ..., z_W]$. If created in strict mode, $z_W = 0$.
 #[derive(Debug)]
 pub struct RunningSum<F: PrimeFieldBits>(Vec<AssignedCell<F, F>>);
-impl<F: PrimeFieldBits> std::ops::Deref for RunningSum<F> {
+impl<F: PrimeFieldBits> core::ops::Deref for RunningSum<F> {
     type Target = Vec<AssignedCell<F, F>>;
 
     fn deref(&self) -> &Vec<AssignedCell<F, F>> {
@@ -397,7 +398,8 @@ mod tests {
     };
     use pasta_curves::pallas;
 
-    use std::{convert::TryInto, marker::PhantomData};
+    use alloc::vec::Vec;
+    use core::{convert::TryInto, marker::PhantomData};
 
     #[test]
     fn lookup_range_check() {

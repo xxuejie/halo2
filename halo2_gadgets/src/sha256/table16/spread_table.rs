@@ -1,5 +1,8 @@
 use super::{util::*, AssignedBits};
 
+use alloc::vec;
+use core::convert::TryInto;
+use core::marker::PhantomData;
 use group::ff::{Field, PrimeField};
 use halo2_proofs::{
     circuit::{Chip, Layouter, Region, Value},
@@ -7,8 +10,6 @@ use halo2_proofs::{
     plonk::{Advice, Column, ConstraintSystem, Error, TableColumn},
     poly::Rotation,
 };
-use std::convert::TryInto;
-use std::marker::PhantomData;
 
 const BITS_7: usize = 1 << 7;
 const BITS_10: usize = 1 << 10;
@@ -52,9 +53,9 @@ impl<const DENSE: usize, const SPREAD: usize> SpreadWord<DENSE, SPREAD> {
         }
     }
 
-    pub(super) fn try_new<T: TryInto<[bool; DENSE]> + std::fmt::Debug>(dense: T) -> Self
+    pub(super) fn try_new<T: TryInto<[bool; DENSE]> + core::fmt::Debug>(dense: T) -> Self
     where
-        <T as TryInto<[bool; DENSE]>>::Error: std::fmt::Debug,
+        <T as TryInto<[bool; DENSE]>>::Error: core::fmt::Debug,
     {
         assert!(DENSE <= 16);
         let dense: [bool; DENSE] = dense.try_into().unwrap();

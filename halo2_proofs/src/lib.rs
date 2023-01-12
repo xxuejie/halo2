@@ -1,5 +1,6 @@
 //! # halo2_proofs
 
+#![no_std]
 #![cfg_attr(docsrs, feature(doc_cfg))]
 // The actual lints we want to disable.
 #![allow(clippy::op_ref, clippy::many_single_char_names)]
@@ -8,13 +9,16 @@
 #![deny(missing_docs)]
 #![deny(unsafe_code)]
 
+extern crate alloc;
+
+use hashbrown as collections;
+
 pub mod arithmetic;
 pub mod circuit;
 pub use pasta_curves as pasta;
-mod multicore;
 pub mod plonk;
 pub mod poly;
 pub mod transcript;
 
-pub mod dev;
 mod helpers;
+mod io;

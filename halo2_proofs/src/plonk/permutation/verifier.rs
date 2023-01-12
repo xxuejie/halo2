@@ -1,6 +1,7 @@
 use group::ff::{Field, PrimeField};
 
-use std::iter;
+use alloc::{vec, vec::Vec};
+use core::iter;
 
 use super::super::{circuit::Any, ChallengeBeta, ChallengeGamma, ChallengeX};
 use super::{Argument, VerifyingKey};

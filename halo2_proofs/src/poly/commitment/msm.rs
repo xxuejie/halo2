@@ -3,7 +3,7 @@ use crate::arithmetic::{best_multiexp, CurveAffine};
 use ff::Field;
 use group::Group;
 
-use std::collections::BTreeMap;
+use alloc::{collections::BTreeMap, vec, vec::Vec};
 
 /// A multiscalar multiplication in the polynomial commitment scheme
 #[derive(Debug, Clone)]

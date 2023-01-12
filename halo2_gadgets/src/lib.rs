@@ -14,12 +14,17 @@
 //! Chips can be highly optimised by their developers, as long as they conform to the
 //! defined instructions.
 
+#![no_std]
 #![cfg_attr(docsrs, feature(doc_cfg))]
 // Catch documentation errors caused by code changes.
 #![deny(rustdoc::broken_intra_doc_links)]
 #![deny(missing_debug_implementations)]
 #![deny(missing_docs)]
 #![deny(unsafe_code)]
+
+extern crate alloc;
+
+use hashbrown as collections;
 
 pub mod ecc;
 pub mod poseidon;

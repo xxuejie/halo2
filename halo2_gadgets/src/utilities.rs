@@ -6,8 +6,9 @@ use halo2_proofs::{
     plonk::{Advice, Column, Error, Expression},
 };
 
-use std::marker::PhantomData;
-use std::ops::Range;
+use alloc::vec::Vec;
+use core::marker::PhantomData;
+use core::ops::Range;
 
 pub mod cond_swap;
 pub mod decompose_running_sum;
@@ -32,7 +33,7 @@ impl<F: Field> FieldValue<F> for AssignedCell<F, F> {
 }
 
 /// Trait for a variable in the circuit.
-pub trait Var<F: Field>: Clone + std::fmt::Debug + From<AssignedCell<F, F>> {
+pub trait Var<F: Field>: Clone + core::fmt::Debug + From<AssignedCell<F, F>> {
     /// The cell at which this variable was allocated.
     fn cell(&self) -> Cell;
 
@@ -194,7 +195,7 @@ pub fn decompose_word<F: PrimeFieldBits>(
         .to_le_bits()
         .into_iter()
         .take(word_num_bits)
-        .chain(std::iter::repeat(false).take(padding))
+        .chain(core::iter::repeat(false).take(padding))
         .collect();
     assert_eq!(bits.len(), word_num_bits + padding);
 
@@ -240,6 +241,9 @@ pub fn i2lebsp<const NUM_BITS: usize>(int: u64) -> [bool; NUM_BITS] {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use alloc::string::ToString;
+    use core::convert::TryInto;
+    use core::iter;
     use group::ff::{Field, FromUniformBytes, PrimeField};
     use halo2_proofs::{
         circuit::{Layouter, SimpleFloorPlanner},
@@ -250,8 +254,6 @@ mod tests {
     use pasta_curves::pallas;
     use proptest::prelude::*;
     use rand::rngs::OsRng;
-    use std::convert::TryInto;
-    use std::iter;
     use uint::construct_uint;
 
     #[test]
