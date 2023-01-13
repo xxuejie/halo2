@@ -1,5 +1,5 @@
 use super::circuit::{Any, Column};
-use crate::arithmetic::CurveAffine;
+use crate::{arithmetic::CurveAffine, helpers::CurveRead, io};
 use alloc::{vec, vec::Vec};
 
 pub(crate) mod keygen;
@@ -65,10 +65,62 @@ impl Argument {
     pub(crate) fn get_columns(&self) -> Vec<Column<Any>> {
         self.columns.clone()
     }
+
+    pub(crate) fn write<W: io::Write>(&self, writer: &mut W) -> io::Result<()> {
+        assert!(self.columns.len() <= u32::max_value() as usize);
+        writer.write_all(&(self.columns.len() as u32).to_le_bytes())?;
+        for c in &self.columns {
+            writer.write_all(&(c.index() as u64).to_le_bytes())?;
+            c.column_type().write(writer)?;
+        }
+        Ok(())
+    }
+
+    pub(crate) fn read<R: io::Read>(reader: &mut R) -> io::Result<Self> {
+        let count = {
+            let mut data = [0u8; 4];
+            reader.read_exact(&mut data[..])?;
+            u32::from_le_bytes(data)
+        };
+        let columns: Vec<_> = (0..count)
+            .map(|_| {
+                let index = {
+                    let mut data = [0u8; 8];
+                    reader.read_exact(&mut data[..])?;
+                    u64::from_le_bytes(data) as usize
+                };
+                let column_type = Any::read(reader)?;
+                Ok(Column::new(index, column_type))
+            })
+            .collect::<Result<_, io::Error>>()?;
+        Ok(Self { columns })
+    }
 }
 
 /// The verifying key for a single permutation argument.
 #[derive(Clone, Debug)]
 pub(crate) struct VerifyingKey<C: CurveAffine> {
     commitments: Vec<C>,
+}
+impl<C: CurveAffine> VerifyingKey<C> {
+    pub(crate) fn write<W: io::Write>(&self, writer: &mut W) -> io::Result<()> {
+        assert!(self.commitments.len() <= u32::max_value() as usize);
+        writer.write_all(&(self.commitments.len() as u32).to_le_bytes())?;
+        for c in &self.commitments {
+            writer.write_all(c.to_bytes().as_ref())?;
+        }
+        Ok(())
+    }
+
+    pub(crate) fn read<R: io::Read>(reader: &mut R) -> io::Result<Self> {
+        let count = {
+            let mut data = [0u8; 4];
+            reader.read_exact(&mut data[..])?;
+            u32::from_le_bytes(data)
+        };
+        let commitments: Vec<_> = (0..count)
+            .map(|_| C::read(reader))
+            .collect::<Result<_, _>>()?;
+        Ok(Self { commitments })
+    }
 }

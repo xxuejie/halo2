@@ -2,6 +2,9 @@ use super::circuit::Expression;
 use alloc::vec::Vec;
 use ff::Field;
 
+use crate::helpers::FieldEncoding;
+use crate::io;
+
 pub(crate) mod verifier;
 
 #[derive(Clone, Debug)]
@@ -68,5 +71,48 @@ impl<F: Field> Argument<F> {
             // (1 - (l_last + l_blind)) z(X) (\theta^{m-1} a_0(X) + ... + a_{m-1}(X) + \beta) (\theta^{m-1} s_0(X) + ... + s_{m-1}(X) + \gamma)
             2 + input_degree + table_degree,
         )
+    }
+}
+
+impl<F: Field + FieldEncoding> Argument<F> {
+    pub(crate) fn write<W: io::Write>(&self, writer: &mut W) -> io::Result<()> {
+        assert!(self.input_expressions.len() <= u32::max_value() as usize);
+        writer.write_all(&(self.input_expressions.len() as u32).to_le_bytes())?;
+        for e in &self.input_expressions {
+            e.write(writer)?;
+        }
+
+        assert!(self.table_expressions.len() <= u32::max_value() as usize);
+        writer.write_all(&(self.table_expressions.len() as u32).to_le_bytes())?;
+        for e in &self.table_expressions {
+            e.write(writer)?;
+        }
+
+        Ok(())
+    }
+
+    pub(crate) fn read<R: io::Read>(reader: &mut R) -> io::Result<Self> {
+        let count = {
+            let mut data = [0u8; 4];
+            reader.read_exact(&mut data[..])?;
+            u32::from_le_bytes(data)
+        };
+        let input_expressions: Vec<_> = (0..count)
+            .map(|_| Expression::read(reader))
+            .collect::<Result<_, _>>()?;
+
+        let count = {
+            let mut data = [0u8; 4];
+            reader.read_exact(&mut data[..])?;
+            u32::from_le_bytes(data)
+        };
+        let table_expressions: Vec<_> = (0..count)
+            .map(|_| Expression::read(reader))
+            .collect::<Result<_, _>>()?;
+
+        Ok(Self {
+            input_expressions,
+            table_expressions,
+        })
     }
 }
