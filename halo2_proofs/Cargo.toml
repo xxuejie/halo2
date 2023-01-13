@@ -22,10 +22,14 @@ keywords = ["halo", "proofs", "zkp", "zkSNARKs"]
 [dependencies]
 ff = "0.13"
 group = "0.13"
-pasta_curves = { git = "https://github.com/xxuejie/pasta_curves", rev = "2ec5d9a" }
 hashbrown = "0.12.3"
 rand_core = { version = "0.6", default-features = false }
 blake2b_simd = { version = "1", default-features = false }
+
+[dependencies.pasta_curves]
+version = "0.5"
+default-features = false
+features = ["bits", "alloc"]
 
 [features]
 default = []
