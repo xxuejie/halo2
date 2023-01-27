@@ -25,30 +25,132 @@ where
 {
 }
 
-/// Performs a small multi-exponentiation operation.
-/// Uses the double-and-add algorithm with doublings shared across points.
-///
-/// NOTE: we are using small_multiexp implementation in halo2_proofs library,
-/// since the (slightly) faster one has a dependency of ln calculation on f64.
-pub fn best_multiexp<C: CurveAffine>(coeffs: &[C::Scalar], bases: &[C]) -> C::Curve {
+fn multiexp_serial<C: CurveAffine>(coeffs: &[C::Scalar], bases: &[C], acc: &mut C::Curve) {
     let coeffs: Vec<_> = coeffs.iter().map(|a| a.to_repr()).collect();
-    let mut acc = C::Curve::identity();
 
-    // for byte idx
-    for byte_idx in (0..32).rev() {
-        // for bit idx
-        for bit_idx in (0..8).rev() {
-            acc = acc.double();
-            // for each coeff
-            for coeff_idx in 0..coeffs.len() {
-                let byte = coeffs[coeff_idx].as_ref()[byte_idx];
-                if ((byte >> bit_idx) & 1) != 0 {
-                    acc += bases[coeff_idx];
+    // Precalculation of the following:
+    //
+    // let c = if bases.len() < 4 {
+    //     1
+    // } else if bases.len() < 32 {
+    //     3
+    // } else {
+    //     (f64::from(bases.len() as u32)).ln().ceil() as usize
+    // };
+    let c = match bases.len() as u32 {
+        0..=3 => 1,
+        4..=31 => 3,
+        32..=54 => 4,
+        55..=148 => 5,
+        149..=403 => 6,
+        404..=1096 => 7,
+        1097..=2980 => 8,
+        2981..=8103 => 9,
+        8104..=22026 => 10,
+        22027..=59874 => 11,
+        59875..=162754 => 12,
+        162755..=442413 => 13,
+        442414..=1202604 => 14,
+        1202605..=3269017 => 15,
+        3269018..=8886110 => 16,
+        8886111..=24154952 => 17,
+        24154953..=65659969 => 18,
+        65659970..=178482300 => 19,
+        178482301..=485165195 => 20,
+        485165196..=1318815734 => 21,
+        1318815735..=3584912846 => 22,
+        3584912847..=4294967295 => 23,
+    };
+
+    fn get_at<F: PrimeField>(segment: usize, c: usize, bytes: &F::Repr) -> usize {
+        let skip_bits = segment * c;
+        let skip_bytes = skip_bits / 8;
+
+        if skip_bytes >= 32 {
+            return 0;
+        }
+
+        let mut v = [0; 8];
+        for (v, o) in v.iter_mut().zip(bytes.as_ref()[skip_bytes..].iter()) {
+            *v = *o;
+        }
+
+        let mut tmp = u64::from_le_bytes(v);
+        tmp >>= skip_bits - (skip_bytes * 8);
+        tmp %= 1 << c;
+
+        tmp as usize
+    }
+
+    let segments = (256 / c) + 1;
+
+    for current_segment in (0..segments).rev() {
+        for _ in 0..c {
+            *acc = acc.double();
+        }
+
+        #[derive(Clone, Copy)]
+        enum Bucket<C: CurveAffine> {
+            None,
+            Affine(C),
+            Projective(C::Curve),
+        }
+
+        impl<C: CurveAffine> Bucket<C> {
+            fn add_assign(&mut self, other: &C) {
+                *self = match *self {
+                    Bucket::None => Bucket::Affine(*other),
+                    Bucket::Affine(a) => Bucket::Projective(a + *other),
+                    Bucket::Projective(mut a) => {
+                        a += *other;
+                        Bucket::Projective(a)
+                    }
+                }
+            }
+
+            fn add(self, mut other: C::Curve) -> C::Curve {
+                match self {
+                    Bucket::None => other,
+                    Bucket::Affine(a) => {
+                        other += a;
+                        other
+                    }
+                    Bucket::Projective(a) => other + &a,
                 }
             }
         }
-    }
 
+        let mut buckets: Vec<Bucket<C>> = vec![Bucket::None; (1 << c) - 1];
+
+        for (coeff, base) in coeffs.iter().zip(bases.iter()) {
+            let coeff = get_at::<C::Scalar>(current_segment, c, coeff);
+            if coeff != 0 {
+                buckets[coeff - 1].add_assign(base);
+            }
+        }
+
+        // Summation by parts
+        // e.g. 3a + 2b + 1c = a +
+        //                    (a) + b +
+        //                    ((a) + b) + c
+        let mut running_sum = C::Curve::identity();
+        for exp in buckets.into_iter().rev() {
+            running_sum = exp.add(running_sum);
+            *acc += &running_sum;
+        }
+    }
+}
+
+/// Performs a multi-exponentiation operation.
+///
+/// This function will panic if coeffs and bases have a different length.
+///
+/// Multithreading is disabled here.
+pub fn best_multiexp<C: CurveAffine>(coeffs: &[C::Scalar], bases: &[C]) -> C::Curve {
+    assert_eq!(coeffs.len(), bases.len());
+
+    let mut acc = C::Curve::identity();
+    multiexp_serial(coeffs, bases, &mut acc);
     acc
 }
 
