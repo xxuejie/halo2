@@ -30,9 +30,10 @@ uint = { version = "0.9.2", default-features = false }
 hashbrown = "0.12.3"
 
 [dependencies.pasta_curves]
-version = "0.5"
+git = "https://github.com/xxuejie/pasta_curves"
+rev = "f9db2b3"
 default-features = false
-features = ["bits", "alloc"]
+features = ["bits", "alloc", "static-sqrt-table", "ckb-asm"]
 
 [features]
 # In-development features
